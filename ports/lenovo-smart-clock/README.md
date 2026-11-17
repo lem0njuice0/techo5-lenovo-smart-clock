@@ -30,6 +30,9 @@ board startup scripts. `tools/` includes the extraction, verification, rootfs
 and temporary daemon-update scripts. The rootfs builder expects the owner's
 extracted firmware and audio tables, matching kernel output, Alpine packages,
 and wake-word models via explicit paths. It does not download or bundle them.
+Optional ARM receiver helpers can be supplied in the upstream `bin/` directory;
+the builder stages them when present. Spotify Connect, AirPlay 2, and the other
+helper-dependent features are not verified on the test unit.
 See each script's usage for its required inputs. `build-private-rootfs.sh` uses
 `CUBE_FIRMWARE`, `CUBE_AUDIO`, `CUBE_KERNEL_OUT`, and `CUBE_OUTPUT`; it requires
 Linux, root, QEMU binfmt, and the prerequisite tools and packages. It emits a

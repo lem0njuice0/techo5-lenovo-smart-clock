@@ -38,6 +38,12 @@ cp "$repo/bin/echod-cube-arm" "$stage/bin/techo5"
 [ ! -f "$repo/bin/fbprobe-cube-arm" ] || cp "$repo/bin/fbprobe-cube-arm" "$stage/bin/fbprobe"
 [ ! -f "$repo/bin/audioprobe-cube-arm" ] || cp "$repo/bin/audioprobe-cube-arm" "$stage/bin/audioprobe"
 [ ! -f "$repo/bin/btbridge-cube-arm" ] || cp "$repo/bin/btbridge-cube-arm" "$stage/bin/btbridge"
+# Optional upstream receivers and helpers are not embedded in the daemon. Only
+# stage caller-supplied ARM builds; absence means the corresponding feature is
+# unavailable and must not be presented as tested on this board.
+for helper in techo5-librespot techo5-shairport-sync techo5-nqptp techo5-ffmpeg tailscaled; do
+    [ ! -f "$repo/bin/$helper-arm" ] || cp "$repo/bin/$helper-arm" "$stage/bin/$helper"
+done
 cp "$repo/tools/linux/slotctl" "$repo/tools/linux/bootctl" "$repo/tools/linux/techo5-lib.sh" "$repo/tools/linux/mkrootfs.sh" "$repo/tools/linux/packages-rootfs.txt" "$stage/tools/"
 printf '\nwpa_supplicant\npython3\ni2c-tools\niproute2\n' >> "$stage/tools/packages-rootfs.txt"
 cp "$port/tools/post-cube-rootfs.sh" "$stage/tools/rootfs-post.sh"
