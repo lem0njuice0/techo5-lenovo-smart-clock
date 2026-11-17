@@ -209,6 +209,9 @@ func TestTheShowStartsWithAFullRing(t *testing.T) {
 // A workstation reads as a Show 5, so the board values have to be the Show 5's: its playback device,
 // the card at the pipeline's own rate, nothing trimmed, and its own start sequence.
 func TestTheShowsPlaybackIsUnchangedOffAthena(t *testing.T) {
+	if layout.Board == "cube" {
+		t.Skip("cube selects its own playback profile")
+	}
 	if PlaybackDevice != 23 || hwRate != Rate || hwTrimDB != 0 {
 		t.Errorf("device %d at %d Hz trimmed %v dB, want 23 at %d and 0", PlaybackDevice, hwRate, hwTrimDB, Rate)
 	}

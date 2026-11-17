@@ -16,6 +16,7 @@ import (
 
 	"github.com/HuskerMinion/techo5/echod/internal/hardware/lenscover"
 	"github.com/HuskerMinion/techo5/echod/internal/hardware/privacy"
+	"github.com/HuskerMinion/techo5/echod/internal/layout"
 	"github.com/HuskerMinion/techo5/echod/internal/lib/hook"
 )
 
@@ -162,6 +163,9 @@ var muteSwitch = privacy.Microphone
 
 // Available reports whether this device has the camera nodes.
 func Available() bool {
+	if layout.Board == "cube" {
+		return false
+	}
 	if is, there := v4l2Board(); is {
 		return there
 	}

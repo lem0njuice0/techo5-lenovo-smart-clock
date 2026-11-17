@@ -1,0 +1,51 @@
+#!/bin/sh
+# Experimental CD-24501F startup. The initramfs binds /dev, /proc and /sys.
+# This script never mounts or changes Android's userdata or A/B metadata.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+mkdir -p /run /tmp /dev/pts /dev/shm /data/misc/techo5/models /data/techo5-linux /var/log /run/techo5 /run/wpa
+mountpoint -q /run || mount -t tmpfs -o mode=755 tmpfs /run
+mountpoint -q /tmp || mount -t tmpfs -o mode=1777 tmpfs /tmp
+mkdir -p /run/techo5 /run/wpa /dev/pts /dev/shm
+mountpoint -q /dev/pts || mount -t devpts devpts /dev/pts
+mountpoint -q /dev/shm || mount -t tmpfs -o mode=1777 tmpfs /dev/shm
+printf '127.0.0.1 localhost localhost.localdomain\n::1 localhost\n' > /run/hosts
+: > /run/resolv.conf
+[ -e /data/misc/techo5/localtime ] || cp /usr/share/zoneinfo/Asia/Tokyo /data/misc/techo5/localtime
+cp -n /usr/share/techo5/models/* /data/misc/techo5/models/ 2>/dev/null || true
+[ -e /data/misc/techo5/timezone ] || printf 'Asia/Tokyo\n' > /data/misc/techo5/timezone
+# A missing or unreadable GPIO remains muted in the daemon. Number and polarity
+# come from the reference board and require confirmation on the 2019 unit.
+for n in 410 429 576; do
+    [ -d /sys/class/gpio/gpio$n ] || echo "$n" > /sys/class/gpio/export 2>/dev/null
+    [ ! -e /sys/class/gpio/gpio$n/direction ] || echo in > /sys/class/gpio/gpio$n/direction
+done
+# Prevent the missing touch firmware request from blocking touch for a minute.
+[ ! -w /sys/class/firmware/timeout ] || echo 1 > /sys/class/firmware/timeout
+for f in /sys/class/firmware/*/loading; do [ ! -w "$f" ] || echo -1 > "$f"; done
+# Audio programming is deliberately opt-in until pin mapping and 2019 tables
+# have been confirmed on the actual unit. Missing input leaves audio unavailable.
+if [ -f /etc/techo5-cube/enable-unverified-audio ]; then
+    python3 /usr/local/sbin/cube-audio-init.py /etc/techo5-cube/audio --apply >> /var/log/cube-audio.log 2>&1 || echo 'cube: audio initialization failed' > /dev/kmsg
+fi
+(
+  [ ! -e /lib/modules/cube/wlan_drv_gen4_mt7668.ko ] || insmod /lib/modules/cube/wlan_drv_gen4_mt7668.ko
+  for n in $(seq 1 40); do [ -d /sys/class/net/wlan0 ] && break; sleep 1; done
+  if [ -d /sys/class/net/wlan0 ]; then
+    conf=/data/techo5-linux/wpa_supplicant.conf
+    [ -e "$conf" ] || printf 'ctrl_interface=/run/wpa\nupdate_config=1\n' > "$conf"
+    chmod 600 "$conf"
+    wpa_supplicant -B -Dnl80211 -i wlan0 -c "$conf" && udhcpc -b -i wlan0 -p /run/udhcpc.pid -s /etc/techo5/udhcpc.sh
+    ntpd -p pool.ntp.org 2>/dev/null &
+  fi
+) >> /var/log/cube-network.log 2>&1 &
+
+# Bluetooth uses the vendor /dev/stpbt bridge. Keep it off until verified;
+# the enable file is not shipped in the image.
+if [ -f /etc/techo5-cube/enable-unverified-bluetooth ]; then
+    [ ! -e /lib/modules/cube/btmtksdio.ko ] || insmod /lib/modules/cube/btmtksdio.ko
+    mkdir -p /run/dbus /var/lib/bluetooth
+    dbus-daemon --system
+    /usr/lib/bluetooth/bluetoothd &
+    /usr/local/bin/btbridge -bdaddr "" &
+fi

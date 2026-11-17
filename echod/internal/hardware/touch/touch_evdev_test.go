@@ -55,7 +55,11 @@ func TestRepeatedContactsKeepUnchangedSlotCoordinates(t *testing.T) {
 	var got []Gesture
 	s.Gestures.Listen(func(g Gesture) { got = append(got, g) })
 	_ = s.Run(context.Background()) // End of the finite event sample.
-	want := []Gesture{{Kind: Tap, X: 200, Y: 379}, {Kind: Tap, X: 200, Y: 379}, {Kind: Tap, X: 200, Y: 369}, {Kind: Tap, X: 210, Y: 369}}
+	want := make([]Gesture, 0, 4)
+	for _, raw := range [][2]int{{100, 200}, {100, 200}, {110, 200}, {110, 210}} {
+		x, y := toFrame(480, 960, raw[0], raw[1])
+		want = append(want, Gesture{Kind: Tap, X: x, Y: y})
+	}
 	if len(got) != len(want) {
 		t.Fatalf("got %v, want %v", got, want)
 	}

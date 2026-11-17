@@ -39,7 +39,7 @@ func oldRotate(d *Device, dst []byte) {
 // The Show 5's canvas, the Show 8's, and one whose width is not a whole number of bands, so the last
 // band is a short one (after an odd and an even number of whole bands).
 func TestRotateMatchesThePixelAtATimeWay(t *testing.T) {
-	for _, size := range []image.Point{{960, 480}, {1280, 800}, {1003, 600}, {1012, 600}} {
+	for _, size := range []image.Point{{800, 480}, {960, 480}, {1280, 800}, {1003, 600}, {1012, 600}} {
 		for _, shift := range [][4]uint{{16, 8, 0, 24}, {0, 8, 16, 24}, {24, 16, 8, 0}} {
 			d, dst := fake(size.X, size.Y, shift)
 			rng := rand.New(rand.NewSource(1))

@@ -44,6 +44,9 @@ func Installing() bool {
 // what arrived, the three-second countdown, and then the restart or the reboot itself — so a display
 // can show them rather than a bar stuck at 100%.
 func Install(ctx context.Context, m Manifest, progress func(float32), phase func(string)) error {
+	if layout.Board == "cube" {
+		return errors.New("update: Lenovo Smart Clock updates are not supported yet")
+	}
 	if !installing.TryLock() {
 		return ErrInstalling
 	}

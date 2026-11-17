@@ -1,0 +1,11 @@
+--- a/drivers/misc/mediatek/video/mt8167/videox/mtkfb.c
++++ b/drivers/misc/mediatek/video/mt8167/videox/mtkfb.c
+@@ -2367,7 +2367,7 @@
+ 		}
+ #endif
+ #ifdef MTK_ONLY_KERNEL_DISP
+-		if (!is_lk_show_logo) {
++		if (fb_virtual_address != NULL) {
+ 			/*
+ 			 * The framebuffer came from ION above: fb_base is its IOMMU address (MVA),
+ 			 * not a physical one, so it must not be ioremap'ed (that maps nothing, and

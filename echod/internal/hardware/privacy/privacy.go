@@ -50,7 +50,13 @@ var softwareCut atomic.Bool
 
 // SoftwareCut reports whether the capture source must hand on silence because a software-only mute
 // is on. It is always false where the hardware cuts the microphones itself.
-func SoftwareCut() bool { return softwareCut.Load() }
+// boardCut may add a physical switch to the software mute. An unreadable
+// switch must report cut; this function is called at the capture boundary.
+var boardCut func() bool
+
+func SoftwareCut() bool {
+	return softwareCut.Load() || (boardCut != nil && boardCut())
+}
 
 // Seed puts the saved mute in force before the first frame is captured, on a device whose mute is
 // the daemon's own.

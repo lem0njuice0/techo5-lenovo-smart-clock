@@ -31,6 +31,10 @@ func TestHardwareActs(t *testing.T) {
 // unmuting a Show writes the latch and never touches this flag, so a Show that seeded it true would
 // keep handing on silence after the owner unmuted, with the hardware saying the microphones are live.
 func TestSeedingDoesNothingOnABoardWhoseHardwareCuts(t *testing.T) {
+	oldMute, oldCut, oldSoftware := boardMute, boardCut, softwareCut.Load()
+	t.Cleanup(func() { boardMute, boardCut = oldMute, oldCut; softwareCut.Store(oldSoftware) })
+	boardMute, boardCut = nil, nil
+	softwareCut.Store(false)
 	Seed(true)
 	if SoftwareCut() {
 		t.Error("a Show seeded the software cut, which nothing on a Show ever clears")

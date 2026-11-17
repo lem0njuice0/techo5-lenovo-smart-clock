@@ -91,8 +91,14 @@ func (s *Sensor) Current() (lux float64, at time.Time, ok bool) {
 	return s.last, s.at, !s.at.IsZero()
 }
 
+// boardStart is set by a board whose sensor is not exposed by the Echo drivers.
+var boardStart func(*Sensor) error
+
 // Start switches the sensor on and opens its input node.
 func (s *Sensor) Start(context.Context) error {
+	if boardStart != nil {
+		return boardStart(s)
+	}
 	if layout.Skylight() {
 		return s.startEM3071X()
 	}

@@ -258,6 +258,9 @@ func written(t *testing.T, dir string) int64 {
 // An old manifest is signed as well as a new one, so the only thing standing between a device and a
 // published version with a known hole is that it will not go backwards.
 func TestInstallRefusesAnOlderVersionThanTheOneRunning(t *testing.T) {
+	oldBoard := layout.Board
+	layout.Board = "cronos"
+	t.Cleanup(func() { layout.Board = oldBoard })
 	somewhere(t)
 
 	// Stand where a released device stands: a stamped version, with the manifest offering the release

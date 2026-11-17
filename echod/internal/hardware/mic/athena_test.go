@@ -13,9 +13,9 @@ import (
 
 // asShow8 sets the frame to the Show 8's for one test: a workstation reads as a Show 5.
 func asShow8(t *testing.T) {
-	c, m, r := Channels, Mics, RefFirst
-	Channels, Mics, RefFirst = show8Channels, show8Mics, show8RefFirst
-	t.Cleanup(func() { Channels, Mics, RefFirst = c, m, r })
+	c, m, r, k := Channels, Mics, RefFirst, boardKernel
+	Channels, Mics, RefFirst, boardKernel = show8Channels, show8Mics, show8RefFirst, nil
+	t.Cleanup(func() { Channels, Mics, RefFirst, boardKernel = c, m, r, k })
 }
 
 // athenaSignal is the same few tones at any rate, so the two devices can be given the same sound.

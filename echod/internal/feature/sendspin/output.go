@@ -60,7 +60,7 @@ const (
 // was meant to go. The server's timestamps say, so they decide.
 type out struct {
 	p     *speaker.Player
-	clock *ssync.ClockSync
+	clock playbackClock
 
 	mu    sync.Mutex
 	ready bool
@@ -120,7 +120,7 @@ const duckFrames = speaker.Rate * 60 / 1000
 
 // use points the renderer at this session's clock. One server at a time, so it changes only between
 // sessions.
-func (o *out) use(clock *ssync.ClockSync) {
+func (o *out) use(clock playbackClock) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.clock = clock

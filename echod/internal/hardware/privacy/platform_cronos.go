@@ -198,6 +198,10 @@ func reads(path, value string) (bool, error) {
 // the mute feature. A board whose mute is the software one (boardMute) is seeded as the Spot is, so a
 // mute saved from last time is in force before capture opens. See privacy.Seed.
 func seedSoftwareCut(muted bool) {
+	if seeded, ok := boardMute.(interface{ Seed(bool) }); ok {
+		seeded.Seed(muted)
+		return
+	}
 	if _, soft := boardMute.(software); soft {
 		softwareCut.Store(muted)
 	}

@@ -143,10 +143,17 @@ func Get() *Controller {
 
 func (c *Controller) Name() string { return "buttons" }
 
+// A board with non-evdev buttons may supply its own startup and reader.
+var boardStart func(*Controller) error
+var boardRun func(context.Context, *Controller) error
+
 // Start opens the input nodes. It is an error to find none: the buttons are the one part of the
 // device that should work whatever else is wrong, so silently having none is worth a restart. A
 // device without buttons of its own (Here) opens nothing, and Run waits for the end.
 func (c *Controller) Start(context.Context) error {
+	if boardStart != nil {
+		return boardStart(c)
+	}
 	if !Here {
 		slog.Info("no buttons of the device's own to read")
 		return nil
@@ -194,6 +201,9 @@ func (c *Controller) Close() error {
 // so the supervisor reopens the nodes: a device that has gone away and come back is the usual reason,
 // and a reader that has quietly exited leaves the device with dead buttons.
 func (c *Controller) Run(ctx context.Context) error {
+	if boardRun != nil {
+		return boardRun(ctx, c)
+	}
 	c.mu.Lock()
 	devices := c.devices
 	c.mu.Unlock()

@@ -44,7 +44,7 @@ const protocolVersion = 1
 // session is one server's hold on this room. The server dials us, so there is no reconnect here.
 type session struct {
 	client *protocol.Client
-	clock  *ssync.ClockSync
+	clock  sessionClock
 	out    *out
 	bg     *speaker.Arbiter
 	report func(string)
@@ -153,7 +153,7 @@ func newSession(conn *websocket.Conn, o *out, bg *speaker.Arbiter, name string, 
 		},
 	}, conn)
 
-	return &session{client: client, clock: ssync.NewClockSync(), out: o, bg: bg, report: report,
+	return &session{client: client, clock: newSendspinClock(), out: o, bg: bg, report: report,
 		releaseAsked: make(chan struct{}, 1), changed: make(chan struct{}, 1)}
 }
 
@@ -884,5 +884,3 @@ func (s *session) leave(ctx context.Context) {
 		slog.Debug("sendspin: saying goodbye", "err", err)
 	}
 }
-
-func micros() int64 { return time.Now().UnixMicro() }

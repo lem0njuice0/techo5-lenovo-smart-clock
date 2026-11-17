@@ -47,7 +47,7 @@ func sshAvailable() bool {
 	if layout.OnAndroid() {
 		return false
 	}
-	if _, err := os.Stat(slotMarker); err != nil {
+	if !sshBootAvailable() {
 		return false
 	}
 	_, err := exec.LookPath("dropbear")

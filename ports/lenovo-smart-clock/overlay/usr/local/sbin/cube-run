@@ -1,0 +1,5 @@
+#!/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+mkdir -p /data/techo5-linux
+exec /usr/local/bin/techo5 run >> /data/techo5-linux/techo5.log 2>&1

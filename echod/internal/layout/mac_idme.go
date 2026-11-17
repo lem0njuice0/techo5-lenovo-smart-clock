@@ -1,4 +1,4 @@
-//go:build !panel
+//go:build !panel && !cube
 
 package layout
 

@@ -59,7 +59,7 @@ func TestListenerBehindKeepsEveryFrame(t *testing.T) {
 	defer stop()
 
 	for i := range behindFrames {
-		s.broadcast(rawFrame(i, false))
+		s.broadcastWithCut(rawFrame(i, false), false)
 	}
 
 	for i := range behindFrames {
@@ -96,7 +96,7 @@ func TestCanceledFramesAreNotTheSameBuffer(t *testing.T) {
 	defer stop()
 
 	for i := range behindFrames {
-		s.broadcast(rawFrame(i, true))
+		s.broadcastWithCut(rawFrame(i, true), false)
 	}
 	if !s.Canceling() {
 		t.Fatal("the canceller did not engage: the loopback in these frames is too quiet")

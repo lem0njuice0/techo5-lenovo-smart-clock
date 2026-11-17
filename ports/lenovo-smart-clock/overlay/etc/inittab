@@ -1,0 +1,5 @@
+# Experimental BusyBox startup for the Smart Clock root on system_b.
+::sysinit:/etc/techo5-cube/rcS
+::respawn:/usr/local/sbin/cube-run
+::respawn:/usr/local/sbin/cube-serial
+::ctrlaltdel:/sbin/reboot

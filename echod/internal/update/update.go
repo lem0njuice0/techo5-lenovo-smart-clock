@@ -122,6 +122,9 @@ func OnTrial() bool {
 // has been asked for — in which case there is no point taking the hardware, and the caller should get
 // out of the way of it.
 func Start() (onTrial, rebooting bool) {
+	if layout.Board == "cube" {
+		return false, false
+	}
 	if !OnTrial() {
 		return false, false
 	}
