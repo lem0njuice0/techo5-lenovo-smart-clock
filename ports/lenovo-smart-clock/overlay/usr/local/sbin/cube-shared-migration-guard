@@ -1,0 +1,29 @@
+#!/bin/sh
+# One-time fallback for an explicitly requested first shared-data migration.
+# The slot-local data remains intact; only the enable marker is renamed on
+# failure. This script must be started by init, independently of the daemon.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+flag=/etc/techo5-cube/shared-migration-guard
+marker=/etc/techo5-cube/enable-shared-data
+disabled=/etc/techo5-cube/enable-shared-data.failed
+[ -f "$flag" ] && [ ! -L "$flag" ] && grep -qx 'TECHO5-CUBE-MIGRATION-GUARD-V1' "$flag" || exit 0
+for attempt in $(seq 1 18); do
+    [ ! -e /run/techo5/shared-data-error ] || break
+    if mountpoint -q /data && mountpoint -q /run/cube-userdata &&
+       [ "$(stat -c %d /data)" = "$(stat -c %d /run/cube-userdata)" ] &&
+       pidof techo5 >/dev/null && pidof dropbear >/dev/null && ip -4 addr show wlan0 | grep -q 'inet '; then
+        rm "$flag"
+        sync
+        exit 0
+    fi
+    sleep 10
+done
+# Never overwrite an existing recovery marker or touch data on either volume.
+if [ -f "$marker" ] && [ ! -L "$marker" ] && [ ! -e "$disabled" ] && [ ! -L "$disabled" ] && grep -qx 'TECHO5-CUBE-SHARED-ENABLE-V1' "$marker"; then
+    mv "$marker" "$disabled"
+    rm "$flag"
+    sync
+    reboot
+fi
+exit 1

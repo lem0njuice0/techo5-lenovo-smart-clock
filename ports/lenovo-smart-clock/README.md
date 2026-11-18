@@ -69,6 +69,12 @@ the repository; on Windows the key file's access control must be set separately.
 For development images only, `CUBE_SHARED_DATA=1` opts into this migration;
 verify the resulting image with `--expect-shared-data`. Use a diagnostic built
 with `cube_shared` so USB recovery is available if migration fails.
+`cube-shared-migration-guard` is an optional one-time init guard for a first
+migration: if shared data or network/SSH does not come up, it disables the
+shared-data marker and reboots to the retained slot-local data. Its use requires
+an explicitly installed init entry and guard flag; it is not enabled by default.
+The healthy path was observed on a device; the failure fallback still needs a
+separate device test.
 For explicitly experimental images, provide a raw 32-byte Ed25519 public key
 through `CUBE_UPDATE_PUB` alongside `CUBE_SHARED_DATA=1` and a diagnostic binary
 built with `cube_update_trial`. Check it using `verify_private_rootfs.py` with
