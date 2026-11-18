@@ -43,16 +43,17 @@ def main():
             "if [ -e \"$backup\" ]; then test \"$(sha256sum \"$backup\" | cut -d ' ' -f1)\" = \"$old\"; "
             "else ln techo5 \"$backup\"; fi; "
             f"chmod 755 {candidate}; mv {candidate} techo5; sync; "
-            "pid=$(pidof techo5); test -n \"$pid\"; kill $pid; echo installed"
+            "pid=$(pidof techo5); test -n \"$pid\"; kill $pid; echo \"$pid\""
         )
-        run(ssh + [command])
+        old_pids = set(run(ssh + [command], capture_output=True, text=True).stdout.split())
     except BaseException:
         subprocess.run(ssh + ["rm -f " + candidate], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         raise
     for _ in range(20):
         time.sleep(1)
-        result = subprocess.run(ssh + [f"test \"$(sha256sum /usr/local/bin/techo5 | cut -d ' ' -f1)\" = {digest} && pidof techo5 >/dev/null"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        if result.returncode == 0:
+        result = subprocess.run(ssh + [f"test \"$(sha256sum /usr/local/bin/techo5 | cut -d ' ' -f1)\" = {digest} && pidof techo5"], capture_output=True, text=True)
+        new_pids = set(result.stdout.split())
+        if result.returncode == 0 and new_pids and new_pids.isdisjoint(old_pids):
             print("Verified daemon is running; previous binary remains in /usr/local/bin/techo5.before-<sha256>.")
             return
     raise SystemExit("The update was installed but startup could not be verified. Use the retained backup and recovery path; do not assume automatic rollback.")
