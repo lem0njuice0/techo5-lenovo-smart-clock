@@ -20,6 +20,13 @@ for e in entries:
     if f.is_symlink() or not f.is_file() or hashlib.sha256(f.read_bytes()).hexdigest()!=e['sha256']: raise SystemExit('firmware hash mismatch: '+name)
 PY
 python3 "$CUBE_PORT/tools/audio_init_2019.py" "$CUBE_AUDIO" >/dev/null
+# Media titles and notifications may need Japanese even when the interface is
+# set to English. Install before mkrootfs packs either output.
+if [ -n "${CUBE_CJK_ARCHIVE:-}" ]; then
+    python3 "$CUBE_PORT/tools/install_japanese_font.py" "$R" --archive "$CUBE_CJK_ARCHIVE"
+else
+    python3 "$CUBE_PORT/tools/install_japanese_font.py" "$R"
+fi
 mkdir -p "$R/etc/techo5-cube/audio" "$R/lib/firmware" "$R/lib/modules/cube" "$R/usr/local/sbin"
 printf 'TECHO5-CUBE-ROOT-V1\n' > "$R/etc/techo5-cube-root"
 for name in EEPROM_MT7668.bin TxPwrLimit_MT76x8.dat WIFI_RAM_CODE2_SDIO_MT7668.bin WIFI_RAM_CODE_MT7668.bin mt7668_patch_e2_hdr.bin wifi.cfg; do
@@ -31,6 +38,10 @@ install -m 755 "$CUBE_PORT/tools/audio_init_2019.py" "$R/usr/local/sbin/cube-aud
 install -m 755 "$CUBE_SERIAL" "$R/usr/local/sbin/cube-serial"
 if [ "${CUBE_TEST_AUDIO:-0}" = 1 ]; then
     : > "$R/etc/techo5-cube/enable-unverified-audio"
+fi
+if [ "${CUBE_BLUETOOTH:-0}" = 1 ]; then
+    [ -x "$R/usr/local/bin/btbridge" ] && [ -x "$R/usr/bin/bluealsa" ] && [ -x "$R/usr/lib/bluetooth/bluetoothd" ] || { echo 'Bluetooth components are missing' >&2; exit 1; }
+    : > "$R/etc/techo5-cube/enable-unverified-bluetooth"
 fi
 install -m 644 "$CUBE_KERNEL_OUT/drivers/misc/mediatek/connectivity/wlan/gen4-mt7668/wlan_drv_gen4_mt7668.ko" "$R/lib/modules/cube/"
 install -m 644 "$CUBE_KERNEL_OUT/drivers/misc/mediatek/connectivity/bt/mt76xx/sdio/btmtksdio.ko" "$R/lib/modules/cube/"

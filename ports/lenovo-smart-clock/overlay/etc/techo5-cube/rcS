@@ -9,6 +9,7 @@ mountpoint -q /tmp || mount -t tmpfs -o mode=1777 tmpfs /tmp
 mkdir -p /run/techo5 /run/wpa /dev/pts /dev/shm
 mountpoint -q /dev/pts || mount -t devpts devpts /dev/pts
 mountpoint -q /dev/shm || mount -t tmpfs -o mode=1777 tmpfs /dev/shm
+ip link set lo up || echo 'cube: loopback setup failed' > /dev/kmsg
 printf '127.0.0.1 localhost localhost.localdomain\n::1 localhost\n' > /run/hosts
 : > /run/resolv.conf
 [ -e /data/misc/techo5/localtime ] || cp /usr/share/zoneinfo/Asia/Tokyo /data/misc/techo5/localtime
@@ -45,7 +46,11 @@ fi
 if [ -f /etc/techo5-cube/enable-unverified-bluetooth ]; then
     [ ! -e /lib/modules/cube/btmtksdio.ko ] || insmod /lib/modules/cube/btmtksdio.ko
     mkdir -p /run/dbus /var/lib/bluetooth
-    dbus-daemon --system
-    /usr/lib/bluetooth/bluetoothd &
-    /usr/local/bin/btbridge -bdaddr "" &
+    pidof dbus-daemon >/dev/null || dbus-daemon --system --fork --nopidfile
+    (
+        /usr/lib/bluetooth/bluetoothd -n --noplugin=input,hog,network,sap >> /data/techo5-linux/bluetoothd.log 2>&1 &
+        /usr/local/bin/btbridge -bdaddr "" >> /data/techo5-linux/btbridge.log 2>&1 &
+        for n in $(seq 1 30); do [ -d /sys/class/bluetooth/hci0 ] && break; sleep 1; done
+        [ ! -d /sys/class/bluetooth/hci0 ] || /usr/bin/bluealsa -p a2dp-source -p a2dp-sink >> /data/techo5-linux/bluealsa.log 2>&1 &
+    ) >> /data/techo5-linux/bluetooth-start.log 2>&1 &
 fi

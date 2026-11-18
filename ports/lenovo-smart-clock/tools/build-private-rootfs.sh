@@ -41,9 +41,17 @@ cp "$repo/bin/echod-cube-arm" "$stage/bin/techo5"
 # Optional upstream receivers and helpers are not embedded in the daemon. Only
 # stage caller-supplied ARM builds; absence means the corresponding feature is
 # unavailable and must not be presented as tested on this board.
-for helper in techo5-librespot techo5-shairport-sync techo5-nqptp techo5-ffmpeg tailscaled; do
+for helper in techo5-librespot techo5-shairport-sync techo5-nqptp techo5-ffmpeg techo5-aec; do
     [ ! -f "$repo/bin/$helper-arm" ] || cp "$repo/bin/$helper-arm" "$stage/bin/$helper"
 done
+if [ -f "$repo/bin/tailscaled-arm64" ]; then
+    [ -f "$repo/bin/tailscaled-arm64.LICENSE" ] || { echo 'missing Tailscale license' >&2; exit 1; }
+    cp "$repo/bin/tailscaled-arm64" "$stage/bin/tailscaled"
+    mkdir -p "$stage/overlay/usr/share/licenses/tailscale"
+    cp "$repo/bin/tailscaled-arm64.LICENSE" "$stage/overlay/usr/share/licenses/tailscale/LICENSE"
+fi
+mkdir -p "$stage/overlay/usr/share/licenses"
+cp -a "$repo/tools/linux/licenses/." "$stage/overlay/usr/share/licenses/"
 cp "$repo/tools/linux/slotctl" "$repo/tools/linux/bootctl" "$repo/tools/linux/techo5-lib.sh" "$repo/tools/linux/mkrootfs.sh" "$repo/tools/linux/packages-rootfs.txt" "$stage/tools/"
 printf '\nwpa_supplicant\npython3\ni2c-tools\niproute2\n' >> "$stage/tools/packages-rootfs.txt"
 cp "$port/tools/post-cube-rootfs.sh" "$stage/tools/rootfs-post.sh"
