@@ -21,7 +21,13 @@ booted from B and was installed into its inactive A slot. Its owner confirmed
 screen, touch, Wi-Fi and audio; switching from TECHO5 A back to stock B and then
 back to TECHO5 A was also tested. Both A/B success records were verified after
 the switch back. Later, that unit's stock B was replaced with TECHO5 to test
-shared-data slot switching, so neither slot on that unit is stock now. A full
+shared-data slot switching, so neither slot on that unit is stock now. The
+first unit's stock A was subsequently replaced too: its settings were migrated
+to shared userdata, and A was trial-booted, installed, marked successful and
+rebooted. The owner confirmed screen, touch, Home Assistant and Music Assistant
+after reboot; B remains a successful TECHO5 fallback. The first unit has the
+experimental verification key and sequence initialized, but has not yet been
+tested with an OTA feed. A full
 raw-backup restore has not been tested. A USB recovery init
 can update the daemon in the marked system without replacing its settings. It
 verifies the complete transfer and saves a copy of the previous daemon, but
