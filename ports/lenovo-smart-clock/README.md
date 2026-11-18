@@ -40,7 +40,9 @@ and startup were tested, and Wi-Fi and SSH reconnected with the shared data
 mounted. A temporary boot of an image in the other system slot also reused
 that store; display, touch and Home Assistant were confirmed. A manual fastboot
 install then booted the other slot normally with the same Wi-Fi and Home
-Assistant settings. Both slots' success records were read back. The original
+Assistant settings. After a power cycle the owner confirmed the screen,
+connectivity, Sendspin playback and voice assistant; both slots' success records
+were read back. The original
 slot-local data remains in place. A USB recovery command
 can disable shared-data startup after a detected failure; that recovery path and
 automatic rollback after a failed A/B update have not yet been tested on a
