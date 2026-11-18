@@ -78,7 +78,11 @@ def main():
             checks["audio_tools_present"] = bool(read("/usr/sbin/i2ctransfer")) and bool(read("/usr/bin/aplay"))
         for name in FIRMWARE:
             checks["firmware:" + name] = name in fw and sha(read("/lib/firmware/" + name)) == fw[name]
-        print(json.dumps({"checks": checks, "note": "structural checks only; hardware and startup are unverified"}, indent=2))
+        image_hash = hashlib.sha256()
+        with image.open("rb") as source:
+            for chunk in iter(lambda: source.read(1024 * 1024), b""):
+                image_hash.update(chunk)
+        print(json.dumps({"image_sha256": image_hash.hexdigest(), "checks": checks, "note": "structural checks only; hardware and startup are unverified"}, indent=2))
         if not all(checks.values()):
             raise SystemExit(1)
 

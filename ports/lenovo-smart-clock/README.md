@@ -12,9 +12,12 @@ also confirmed; recovery from an unbootable image still needs a device test.
 ## Current status
 
 This is source for an experimental build, **not a ready-to-install release**.
-The existing prototype boots a marked ext4 root on `system_b`, with its own
-boot image in `boot_b`; slot A was retained on the test unit. The owner's stock
-backup and recovery path were not independently verified. A USB recovery init
+The first prototype boots a marked ext4 root on `system_b`, with its own
+boot image in `boot_b`; slot A was retained on that unit. A second stock unit
+booted from B and was installed into its inactive A slot. Its owner confirmed
+screen, touch, Wi-Fi and audio; switching from TECHO5 A back to stock B and then
+back to TECHO5 A was also tested. Both A/B success records were verified after
+the switch back. A full raw-backup restore has not been tested. A USB recovery init
 can update the daemon in the marked system without replacing its settings. It
 verifies the complete transfer and saves a copy of the previous daemon, but
 it is not a complete installer or a rollback-tested OTA mechanism.
@@ -25,9 +28,23 @@ developer tool, not an automatic rollback or signed update service. It was
 tested on one unit by installing a temporary copy and restoring the prior
 executable, with settings retained.
 
+An experimental, explicitly enabled shared-data migration copies the current
+TECHO5 settings and Bluetooth state to a dedicated directory on the existing
+userdata filesystem, without formatting it. On the second unit the migration
+and startup were tested, and Wi-Fi and SSH reconnected with the shared data
+mounted. The original slot-local data remains in place. A USB recovery command
+can disable shared-data startup after a detected failure; that recovery path and
+data preservation across an actual A/B update have not yet been tested on a
+device. Enabling shared data alone does not implement or enable OTA updates.
+
 Do not use the Echo installers or release images on a Lenovo Smart Clock. A
 fresh-device installer, board-specific updates, reproducible kernel build and
 documentation are still being developed.
+`tools/install_cube_fastboot.py` is an experimental two-stage fastboot tool: it
+requires a verified rootfs report, a matching boot image, an explicitly chosen
+inactive slot and a successful active stock slot. It was used to trial and
+install onto the inactive A slot of one stock unit; other revisions and the
+corresponding B install path still need testing.
 
 ## Source and extracted inputs
 
@@ -58,6 +75,10 @@ Their full source provenance and redistribution terms, the exact kernel build
 recipe, and all modified kernel source still need to be documented and verified
 before offering an image for distribution. Proprietary firmware, device backups,
 credentials, and extracted vendor audio data are deliberately excluded.
+`tools/build_cube_kernel.sh` records the build steps for an already patched 2019
+source tree, stock configuration, ARM64 toolchain and cube init; it does not fetch
+or apply the external reference patches. Its fresh-build path needs independent
+verification before use as an installation guide.
 
 The port reuses [TECHO5](https://github.com/HuskerMinion/techo5), which is MIT
 licensed; see the repository's LICENSE and NOTICE for upstream attribution. Other

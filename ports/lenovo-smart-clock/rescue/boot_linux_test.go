@@ -9,13 +9,16 @@ import (
 )
 
 func TestBootRequiresExactArgument(t *testing.T) {
-	for _, s := range []string{"", "techo5.cube.root=system_a", "xtecho5.cube.root=system_b", "techo5.cube.root=system_b_extra"} {
+	for _, s := range []string{"", "xtecho5.cube.root=system_b", "techo5.cube.root=system_b_extra", "techo5.cube.root=system_a techo5.cube.root=system_b"} {
 		if bootRequested(s) {
 			t.Fatalf("unexpected boot for %q", s)
 		}
 	}
 	if !bootRequested("console=tty0 techo5.cube.root=system_b other=1") {
 		t.Fatal("explicit flag ignored")
+	}
+	if bootTarget("console=tty0 techo5.cube.root=system_a") != "system_a" {
+		t.Fatal("slot A ignored")
 	}
 }
 
@@ -36,6 +39,10 @@ func TestPartitionRequiresUniqueSystemB(t *testing.T) {
 	got, err := partition(root, "/dev")
 	if err != nil || got != "/dev/mmcblk0p3" {
 		t.Fatalf("%q %v", got, err)
+	}
+	got, err = partitionNamed(root, "/dev", "system_a")
+	if err != nil || got != "/dev/mmcblk0p4" {
+		t.Fatalf("slot A: %q %v", got, err)
 	}
 	add("mmcblk1p3", "PARTNAME=system_b\nDEVNAME=mmcblk1p3\n")
 	if _, err := partition(root, "/dev"); err == nil {

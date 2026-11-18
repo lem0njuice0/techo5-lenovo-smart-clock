@@ -17,17 +17,30 @@ const rootMarker = "TECHO5-CUBE-ROOT-V1\n"
 
 var mmcPartition = regexp.MustCompile(`^mmcblk[0-9]+p[0-9]+$`)
 
-func bootRequested(cmdline string) bool {
+func bootTarget(cmdline string) string {
+	target := ""
 	for _, word := range strings.Fields(cmdline) {
-		if word == "techo5.cube.root=system_b" {
-			return true
+		if strings.HasPrefix(word, "techo5.cube.root=") {
+			if target != "" || (word != "techo5.cube.root=system_a" && word != "techo5.cube.root=system_b") {
+				return ""
+			}
+			target = strings.TrimPrefix(word, "techo5.cube.root=")
 		}
 	}
-	return false
+	return target
+}
+func bootRequested(cmdline string) bool { return bootTarget(cmdline) != "" }
+
+// partition is the legacy system_b lookup used by older tooling.
+func partition(sysBlock, devRoot string) (string, error) {
+	return partitionNamed(sysBlock, devRoot, "system_b")
 }
 
-// partition finds exactly one system_b eMMC partition. Never guess block numbers.
-func partition(sysBlock, devRoot string) (string, error) {
+// partitionNamed finds exactly one requested eMMC partition. Never guess numbers.
+func partitionNamed(sysBlock, devRoot, requested string) (string, error) {
+	if requested != "system_a" && requested != "system_b" {
+		return "", errors.New("unsupported root partition")
+	}
 	entries, err := os.ReadDir(sysBlock)
 	if err != nil {
 		return "", err
@@ -54,12 +67,12 @@ func partition(sysBlock, devRoot string) (string, error) {
 				dev = v
 			}
 		}
-		if part == "system_b" && dev == e.Name() {
+		if part == requested && dev == e.Name() {
 			found = append(found, filepath.Join(devRoot, dev))
 		}
 	}
 	if len(found) != 1 {
-		return "", fmt.Errorf("expected one system_b eMMC partition, found %d", len(found))
+		return "", fmt.Errorf("expected one %s eMMC partition, found %d", requested, len(found))
 	}
 	return found[0], nil
 }
@@ -97,7 +110,7 @@ func validateRoot(root string) error {
 }
 
 // Only the explicitly marked root is mounted, first read-only; an unrecognized
-// system_b falls back to the serial diagnostic without writing to it.
+// root falls back to the serial diagnostic without writing to it.
 func bootIfRequested() (result error) {
 	var mounted bool
 	var bound []string
@@ -117,12 +130,13 @@ func bootIfRequested() (result error) {
 	if err != nil {
 		return err
 	}
-	if !bootRequested(string(cmd)) {
+	target := bootTarget(string(cmd))
+	if target == "" {
 		return nil
 	}
 	var dev string
 	for i := 0; i < 20; i++ {
-		dev, err = partition("/sys/class/block", "/dev")
+		dev, err = partitionNamed("/sys/class/block", "/dev", target)
 		if err == nil {
 			break
 		}

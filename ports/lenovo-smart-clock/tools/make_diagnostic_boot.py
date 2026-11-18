@@ -21,7 +21,9 @@ def main():
     p.add_argument("kernel_gz", type=Path)
     p.add_argument("dtb", type=Path)
     p.add_argument("output", type=Path, help="new file; will not overwrite")
-    p.add_argument("--experimental-system-b", action="store_true", help="request boot of a marked system_b root")
+    modes = p.add_mutually_exclusive_group()
+    modes.add_argument("--experimental-system-b", action="store_true", help="request boot of a marked system_b root")
+    modes.add_argument("--experimental-system-a", action="store_true", help="request boot of a marked system_a root")
     a = p.parse_args()
     donor = parse(a.donor)
     if a.output.exists():
@@ -38,6 +40,8 @@ def main():
         p.error("donor already contains a cube root argument; inspect manually")
     if a.experimental_system_b:
         parts.append("techo5.cube.root=system_b")
+    elif a.experimental_system_a:
+        parts.append("techo5.cube.root=system_a")
     if "keep_initramfs" not in parts:
         parts.append("keep_initramfs")
     cmdline = " ".join(parts).encode("ascii")

@@ -1,5 +1,14 @@
 #!/bin/sh
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
+if [ -e /etc/techo5-cube/enable-shared-data ] || [ -L /etc/techo5-cube/enable-shared-data ]; then
+    if [ -e /run/techo5/shared-data-error ] || ! mountpoint -q /data || ! mountpoint -q /run/cube-userdata || [ "$(stat -c %d /data)" != "$(stat -c %d /run/cube-userdata)" ]; then
+        mkdir -p /run/techo5
+        : > /run/techo5/shared-data-error
+        echo 'shared data unavailable; daemon held for USB recovery' > /dev/kmsg
+        sleep 60
+        exit 1
+    fi
+fi
 mkdir -p /data/techo5-linux
 exec /usr/local/bin/techo5 run >> /data/techo5-linux/techo5.log 2>&1

@@ -123,8 +123,32 @@ func (t *transfer) commit() error {
 	defer d.Close()
 	return d.Sync()
 }
+func activeUpdateRoot(cmdline string) (string, error) {
+	name := ""
+	for _, word := range strings.Fields(cmdline) {
+		if strings.HasPrefix(word, "androidboot.slot_suffix=") {
+			if name != "" || (word != "androidboot.slot_suffix=_a" && word != "androidboot.slot_suffix=_b") {
+				return "", fmt.Errorf("ambiguous or unsupported boot slot")
+			}
+			name = "system_" + strings.TrimPrefix(word, "androidboot.slot_suffix=_")
+		}
+	}
+	if name == "" {
+		return "", fmt.Errorf("missing boot slot")
+	}
+	return name, nil
+}
+
 func openUpdateRoot() (string, error) {
-	dev, err := partition("/sys/class/block", "/dev")
+	cmdline, err := os.ReadFile("/proc/cmdline")
+	if err != nil {
+		return "", err
+	}
+	target, err := activeUpdateRoot(string(cmdline))
+	if err != nil {
+		return "", err
+	}
+	dev, err := partitionNamed("/sys/class/block", "/dev", target)
 	if err != nil {
 		return "", err
 	}

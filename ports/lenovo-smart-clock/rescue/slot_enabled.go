@@ -36,17 +36,37 @@ func slotRecord(b []byte) error {
 }
 
 func markBGood(b []byte, cmdline string) ([]byte, error) {
+	return markSlotGood(b, cmdline, "b")
+}
+
+func markSlotGood(b []byte, cmdline, target string) ([]byte, error) {
 	if err := slotRecord(b); err != nil {
 		return nil, err
 	}
-	if !strings.Contains(" "+cmdline+" ", " androidboot.slot_suffix=_b ") {
-		return nil, errors.New("bootloader did not select slot b")
+	if target != "a" && target != "b" {
+		return nil, errors.New("unsupported target slot")
 	}
-	if b[8] == 0 || b[10] != 1 || b[12] <= b[8] || b[12] == 0 || (b[13] == 0 && b[14] == 0) {
-		return nil, errors.New("slot state does not preserve successful A and bootable preferred B")
+	suffixes := 0
+	for _, word := range strings.Fields(cmdline) {
+		if strings.HasPrefix(word, "androidboot.slot_suffix=") {
+			suffixes++
+			if word != "androidboot.slot_suffix=_"+target {
+				return nil, errors.New("bootloader selected another slot")
+			}
+		}
+	}
+	if suffixes != 1 {
+		return nil, errors.New("missing or ambiguous bootloader slot")
+	}
+	selected, stock := 8, 12
+	if target == "b" {
+		selected, stock = 12, 8
+	}
+	if b[stock] == 0 || b[stock+2] != 1 || b[selected] <= b[stock] || b[selected] == 0 || (b[selected+1] == 0 && b[selected+2] == 0) {
+		return nil, errors.New("slot state does not preserve the successful stock slot and preferred target")
 	}
 	out := append([]byte(nil), b...)
-	out[13], out[14] = 0, 1
+	out[selected+1], out[selected+2] = 0, 1
 	binary.BigEndian.PutUint32(out[28:], crc32.ChecksumIEEE(out[:28]))
 	return out, nil
 }
@@ -154,7 +174,16 @@ func slotCommand(s string) (string, bool) {
 	if s == "slot-status" {
 		return fmt.Sprintf("A priority=%d tries=%d successful=%d; B priority=%d tries=%d successful=%d\n", record[8], record[9], record[10], record[12], record[13], record[14]), true
 	}
-	updated, err := markBGood(record, string(cmd))
+	target := ""
+	for _, word := range strings.Fields(string(cmd)) {
+		if word == "androidboot.slot_suffix=_a" {
+			target = "a"
+		}
+		if word == "androidboot.slot_suffix=_b" {
+			target = "b"
+		}
+	}
+	updated, err := markSlotGood(record, string(cmd), target)
 	if err != nil {
 		return fmt.Sprintf("refused: %v\n", err), true
 	}
@@ -169,5 +198,5 @@ func slotCommand(s string) (string, bool) {
 	if _, err := f.ReadAt(check, slotOffset); err != nil || string(check) != string(sector) {
 		return "readback mismatch\n", true
 	}
-	return "slot B marked successful; slot A metadata preserved\n", true
+	return fmt.Sprintf("slot %s marked successful; other slot metadata preserved\n", strings.ToUpper(target)), true
 }

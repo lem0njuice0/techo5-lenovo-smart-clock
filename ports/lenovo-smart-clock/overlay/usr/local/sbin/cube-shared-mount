@@ -1,0 +1,25 @@
+#!/bin/sh
+# Invoked before Wi-Fi or the daemon starts. Never formats the userdata device.
+set -eu
+tool=/usr/local/libexec/cube_shared_data.py
+root=/run/cube-userdata
+dev=$(python3 "$tool" find /sys/class/block /dev)
+mkdir -p "$root"
+if mountpoint -q "$root"; then echo 'userdata mount point already occupied' >&2; exit 1; fi
+mount -t ext4 -o rw "$dev" "$root"
+python3 "$tool" prepare "$root" /data --bluetooth /var/lib/bluetooth --bluealsa /var/lib/bluealsa
+mount --bind "$root/techo5-cube/data" /data
+parent=/data/techo5-linux
+[ ! -L "$parent" ] || { echo 'invalid data state parent' >&2; exit 1; }
+[ -e "$parent" ] || mkdir "$parent"
+[ -d "$parent" ] || { echo 'invalid data state parent' >&2; exit 1; }
+for pair in bluetooth bluealsa; do
+    source=$parent/$pair
+    [ ! -L "$source" ] || { echo "invalid $pair state" >&2; exit 1; }
+    [ -e "$source" ] || mkdir "$source"
+    [ -d "$source" ] && [ ! -L "$source" ] || { echo "invalid $pair state" >&2; exit 1; }
+    for dest in "/var/lib/$pair" "/usr/var/lib/$pair"; do
+        [ ! -d "$dest" ] || mount --bind "$source" "$dest"
+    done
+done
+sync

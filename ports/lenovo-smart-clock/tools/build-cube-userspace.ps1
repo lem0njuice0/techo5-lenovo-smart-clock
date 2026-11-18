@@ -17,7 +17,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'TECHO5 daemon build failed' }
     & go -C $repoPath build -o (Join-Path $repoPath 'bin/btbridge-cube-arm') ./cmd/btbridge
     if ($LASTEXITCODE -ne 0) { throw 'Bluetooth bridge build failed' }
-    & go -C (Join-Path $port 'serial') build -o (Join-Path $port 'build/cube-serial-arm') .
+    & go -C (Join-Path $port 'serial') build -tags cube_slot,cube_shared -o (Join-Path $port 'build/cube-serial-arm') .
     if ($LASTEXITCODE -ne 0) { throw 'runtime diagnostic build failed' }
     $env:GOARCH = 'arm64'
     Remove-Item Env:GOARM -ErrorAction SilentlyContinue

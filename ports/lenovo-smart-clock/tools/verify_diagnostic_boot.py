@@ -40,7 +40,9 @@ def main():
     p.add_argument("candidate", type=Path)
     p.add_argument("kernel_gz", type=Path)
     p.add_argument("dtb", type=Path)
-    p.add_argument("--expect-system-b", action="store_true", help="expect the experimental marked-root flag")
+    modes = p.add_mutually_exclusive_group()
+    modes.add_argument("--expect-system-b", action="store_true", help="expect the experimental system_b root flag")
+    modes.add_argument("--expect-system-a", action="store_true", help="expect the experimental system_a root flag")
     a = p.parse_args()
     donor, candidate = parse(a.donor), parse(a.candidate)
     expected = a.kernel_gz.read_bytes() + a.dtb.read_bytes()
@@ -49,7 +51,7 @@ def main():
         boot_id.update(part)
         boot_id.update(struct.pack("<I", len(part)))
     root_args = [x for x in candidate["cmdline"].split() if x.startswith("techo5.cube.root=")]
-    expected_root = ["techo5.cube.root=system_b"] if a.expect_system_b else []
+    expected_root = ["techo5.cube.root=system_b"] if a.expect_system_b else (["techo5.cube.root=system_a"] if a.expect_system_a else [])
     donor_args = donor["cmdline"].split()
     expected_args = donor_args + expected_root
     if "keep_initramfs" not in expected_args:

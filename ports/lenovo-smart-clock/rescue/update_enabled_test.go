@@ -60,3 +60,18 @@ func TestUpdateRejectsBadDigest(t *testing.T) {
 		t.Fatalf("original changed: %q", got)
 	}
 }
+
+func TestUpdateRootFollowsUnambiguousBootSlot(t *testing.T) {
+	for _, c := range []struct{ cmd, want string }{
+		{"androidboot.slot_suffix=_a", "system_a"},
+		{"x=1 androidboot.slot_suffix=_b", "system_b"},
+		{"", ""},
+		{"androidboot.slot_suffix=_a androidboot.slot_suffix=_b", ""},
+		{"androidboot.slot_suffix=_z", ""},
+	} {
+		got, err := activeUpdateRoot(c.cmd)
+		if got != c.want || (err != nil) != (c.want == "") {
+			t.Errorf("%q: got %q, %v", c.cmd, got, err)
+		}
+	}
+}

@@ -1,5 +1,8 @@
-// cube-serial is a limited, read-only diagnostic on the initramfs USB gadget.
-// It never configures USB, runs commands, opens a shell, or writes to storage.
+// cube-serial is a limited diagnostic on the initramfs USB gadget.
+// It never configures USB, runs arbitrary commands, or opens a shell. The
+// optional cube_slot build can mark the current trial slot successful after
+// checking that the other slot remains successful. The optional cube_shared
+// build can disable shared-data startup after a detected migration failure.
 package main
 
 import (
@@ -16,7 +19,7 @@ var nodes = []string{"/dev/fb0", "/dev/input", "/dev/snd", "/sys/class/net/wlan0
 func command(line string, stat func(string) (os.FileInfo, error), read func(string) ([]byte, error)) string {
 	switch strings.TrimSpace(line) {
 	case "help":
-		return "commands: help, status, nodes, version, cmdline, audio-status\n"
+		return "commands: help, status, nodes, version, cmdline, audio-status" + slotHelp() + sharedHelp() + "\n"
 	case "status":
 		if b, err := read("/etc/techo5-cube-root"); err == nil && string(b) == "TECHO5-CUBE-ROOT-V1\n" {
 			return "experimental cube root active; hardware validation required\n"
@@ -41,6 +44,12 @@ func command(line string, stat func(string) (os.FileInfo, error), read func(stri
 	case "":
 		return ""
 	default:
+		if out, ok := sharedCommand(strings.TrimSpace(line)); ok {
+			return out
+		}
+		if out, ok := slotCommand(strings.TrimSpace(line)); ok {
+			return out
+		}
 		return "unknown command; type help\n"
 	}
 }

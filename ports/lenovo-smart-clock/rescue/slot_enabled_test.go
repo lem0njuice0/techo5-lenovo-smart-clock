@@ -18,6 +18,24 @@ func exampleSlotRecord() []byte {
 	return b
 }
 
+func TestMarkAGoodPreservesSuccessfulB(t *testing.T) {
+	b := exampleSlotRecord()
+	copy(b[8:], []byte{15, 6, 0, 0, 14, 0, 1, 0})
+	binary.BigEndian.PutUint32(b[28:], crc32.ChecksumIEEE(b[:28]))
+	out, err := markSlotGood(b, "androidboot.slot_suffix=_a", "a")
+	if err != nil || out[9] != 0 || out[10] != 1 || string(out[12:16]) != string(b[12:16]) || slotRecord(out) != nil {
+		t.Fatalf("bad output %x %v", out, err)
+	}
+	if _, err := markSlotGood(b, "androidboot.slot_suffix=_a androidboot.slot_suffix=_b", "a"); err == nil {
+		t.Fatal("accepted ambiguous slot")
+	}
+	b[14] = 0
+	binary.BigEndian.PutUint32(b[28:], crc32.ChecksumIEEE(b[:28]))
+	if _, err := markSlotGood(b, "androidboot.slot_suffix=_a", "a"); err == nil {
+		t.Fatal("accepted unsuccessful stock B")
+	}
+}
+
 func TestMarkBGoodRequiresValidRecoverableState(t *testing.T) {
 	b := exampleSlotRecord()
 	out, err := markBGood(b, "console=x androidboot.slot_suffix=_b boot=x")

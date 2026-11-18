@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Update only the marked system_b daemon using the temporary USB rescue image."""
+"""Update the marked active-slot daemon using a matching USB recovery image."""
 import argparse
 import base64
 import hashlib
