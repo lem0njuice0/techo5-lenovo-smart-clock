@@ -7,16 +7,19 @@ set -euo pipefail
 port=${CUBE_PORT:-$(cd "$(dirname "$0")/.." && pwd)}
 repo=${CUBE_REPO:-$(cd "$port/../.." && pwd)}
 inputs=${CUBE_INPUTS:-$port/inputs}
+helpers=${CUBE_HELPERS:-$repo/bin}
+daemon=${CUBE_DAEMON:-$repo/bin/echod-cube-arm}
+btbridge=${CUBE_BTBRIDGE:-$repo/bin/btbridge-cube-arm}
 export CUBE_PORT="$port"
 export CUBE_FIRMWARE=${CUBE_FIRMWARE:?set to extracted firmware directory}
 export CUBE_AUDIO=${CUBE_AUDIO:?set to extracted 2019 audio table directory}
 export CUBE_KERNEL_OUT=${CUBE_KERNEL_OUT:?set to matching runtime kernel build output}
 output=${CUBE_OUTPUT:?set a new private output directory}
 [ ! -e "$output" ] || { echo 'output already exists' >&2; exit 1; }
-[ -f "$repo/bin/echod-cube-arm" ] && [ -x "$inputs/apk.static" ] || { echo 'missing daemon or apk.static' >&2; exit 1; }
+[ -f "$daemon" ] && [ -x "$inputs/apk.static" ] || { echo 'missing daemon or apk.static' >&2; exit 1; }
 export CUBE_SERIAL=${CUBE_SERIAL:-$port/build/cube-serial-arm}
 [ -f "$CUBE_SERIAL" ] || { echo 'missing ARM runtime diagnostic binary' >&2; exit 1; }
-python3 - "$repo/bin/echod-cube-arm" "$CUBE_SERIAL" <<'PY'
+python3 - "$daemon" "$CUBE_SERIAL" <<'PY'
 import pathlib,sys
 for name in sys.argv[1:]:
     with pathlib.Path(name).open('rb') as f: header=f.read(20)
@@ -35,21 +38,21 @@ cp -a "$repo/tools/linux/rootfs/." "$stage/overlay/"
 cp -a "$port/overlay/." "$stage/overlay/"
 cp "$inputs"/models/*.tflite "$inputs"/models/*.json "$stage/overlay/usr/share/techo5/models/"
 cp "$inputs/alpine-minirootfs-3.24.2-armv7.tar.gz" "$stage/inputs/"
-cp "$repo/bin/echod-cube-arm" "$stage/bin/techo5"
+cp "$daemon" "$stage/bin/techo5"
 [ ! -f "$repo/bin/fbprobe-cube-arm" ] || cp "$repo/bin/fbprobe-cube-arm" "$stage/bin/fbprobe"
 [ ! -f "$repo/bin/audioprobe-cube-arm" ] || cp "$repo/bin/audioprobe-cube-arm" "$stage/bin/audioprobe"
-[ ! -f "$repo/bin/btbridge-cube-arm" ] || cp "$repo/bin/btbridge-cube-arm" "$stage/bin/btbridge"
+[ ! -f "$btbridge" ] || cp "$btbridge" "$stage/bin/btbridge"
 # Optional upstream receivers and helpers are not embedded in the daemon. Only
 # stage caller-supplied ARM builds; absence means the corresponding feature is
 # unavailable and must not be presented as tested on this board.
 for helper in techo5-librespot techo5-shairport-sync techo5-nqptp techo5-ffmpeg techo5-aec; do
-    [ ! -f "$repo/bin/$helper-arm" ] || cp "$repo/bin/$helper-arm" "$stage/bin/$helper"
+    [ ! -f "$helpers/$helper-arm" ] || cp "$helpers/$helper-arm" "$stage/bin/$helper"
 done
-if [ -f "$repo/bin/tailscaled-arm64" ]; then
-    [ -f "$repo/bin/tailscaled-arm64.LICENSE" ] || { echo 'missing Tailscale license' >&2; exit 1; }
-    cp "$repo/bin/tailscaled-arm64" "$stage/bin/tailscaled"
+if [ -f "$helpers/tailscaled-arm64" ]; then
+    [ -f "$helpers/tailscaled-arm64.LICENSE" ] || { echo 'missing Tailscale license' >&2; exit 1; }
+    cp "$helpers/tailscaled-arm64" "$stage/bin/tailscaled"
     mkdir -p "$stage/overlay/usr/share/licenses/tailscale"
-    cp "$repo/bin/tailscaled-arm64.LICENSE" "$stage/overlay/usr/share/licenses/tailscale/LICENSE"
+    cp "$helpers/tailscaled-arm64.LICENSE" "$stage/overlay/usr/share/licenses/tailscale/LICENSE"
 fi
 mkdir -p "$stage/overlay/usr/share/licenses"
 cp -a "$repo/tools/linux/licenses/." "$stage/overlay/usr/share/licenses/"

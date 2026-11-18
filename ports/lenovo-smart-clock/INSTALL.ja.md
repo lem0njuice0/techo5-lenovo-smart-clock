@@ -18,6 +18,29 @@
 
 **このガイドだけでは、初期状態の機器への導入を完了できません。** 必要なファイルや解除・復旧の手段を用意できない場合は、書き込みに進まず、手順が整うまでお待ちください。
 
+## 実験中：準備とビルドの自動化
+
+`prepare_cube_inputs.py` は公開元から TECHO5 の補助プログラム・ウェイクワードモデルと Alpine の必要ファイルを取得し、固定された SHA-256 を検証します。純正 ROM やカーネルは取得しません。`build_cube_bundle.py` は、所有者が用意した純正データと**対応するビルド済みカーネル**を使って、抽出からイメージの構築・検証までつなぎます。まだ初期状態からの通し試験は行っていません。
+
+Linux x86_64 の専用ビルド環境で、以下のパスを実際のものに置き換えてください。root、Go、JADX、`debugfs`、`mke2fs`、登録済みの `qemu-arm`、ビルド用ツールと数 GB の空きが必要です。カーネルには本機用のランタイム init と必要なドライバーが必要です。空き容量のある作業先を指定し、`--work` 自体はまだ存在しないディレクトリにしてください。
+
+```sh
+sudo python3 ports/lenovo-smart-clock/tools/build_cube_bundle.py \
+  --vendor /private/source/vendor.img --oem /private/source/oem.img \
+  --kernel-out /private/kernel/out --donor-boot /private/source/boot.img \
+  --slot a --work /private/cube-build
+```
+
+出力されるイメージは非公開の実験版です。この段階では時計に書き込みません。対応する機器を fastboot に接続後、まず `--action inspect` で検査できます。`a` は実際に書き込む非アクティブ側に合わせてください。
+
+```sh
+python3 ports/lenovo-smart-clock/tools/cube_install.py --work /private/cube-build --serial YOUR_SERIAL --slot a --action inspect
+```
+
+同じ引数で `--action trial` を指定すると、**非アクティブ側の system を上書き**して一時起動します。画面・接続・復旧経路を確認した後、再び fastboot に戻し、同じ引数で `--action install --trial-confirmed` を指定すると boot の書き込みとスロット切り替えを行います。実際に同じイメージを試したことは利用者が確認する必要があります。ツールは解除や起動成功の登録を行わず、設定保持・自動更新も有効にしません。詳しい条件は[手順 5](#5-fastboot-での試験と導入)を参照してください。
+
+公開ファイルだけを先に取得したい場合は `python3 ports/lenovo-smart-clock/tools/prepare_cube_inputs.py --output /private/cube-inputs` を使えます。出力先は新しいディレクトリにしてください。
+
 ## 1. 用意するもの
 
 - 対象機器、電源、データ通信に対応した USB ケーブル、Python 3、Android platform-tools の `fastboot`。Linux でイメージを作る場合は root 権限、`debugfs`、`mke2fs`、`qemu-arm` の binfmt 登録と Alpine のビルドに必要なツールも必要です。APK の音声設定抽出には JADX が必要です。

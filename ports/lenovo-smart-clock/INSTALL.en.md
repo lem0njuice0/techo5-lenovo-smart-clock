@@ -18,6 +18,29 @@ Display, touch, Wi-Fi, and other features were tested on two devices, but testin
 
 **This guide alone cannot complete an installation on a factory-state device.** If you cannot obtain the necessary inputs or establish unlocking and recovery, do not proceed to flashing; wait until the missing instructions are available.
 
+## Experimental: automated preparation and build
+
+`prepare_cube_inputs.py` downloads public TECHO5 helpers, wake-word models, and required Alpine files from their publishers and verifies pinned SHA-256 hashes. It does not obtain a stock ROM or kernel. Given the owner's stock data and a **compatible prebuilt kernel**, `build_cube_bundle.py` runs extraction, image creation, and verification. The workflow has not yet been tested end to end from a factory-state device.
+
+In a dedicated x86_64 Linux build environment, replace the example paths below. Root, Go, JADX, `debugfs`, `mke2fs`, registered `qemu-arm`, build tools, and several GB of free space are required. The kernel must include the cube runtime init and required drivers. Choose a work location with sufficient free space; `--work` itself must not exist yet.
+
+```sh
+sudo python3 ports/lenovo-smart-clock/tools/build_cube_bundle.py \
+  --vendor /private/source/vendor.img --oem /private/source/oem.img \
+  --kernel-out /private/kernel/out --donor-boot /private/source/boot.img \
+  --slot a --work /private/cube-build
+```
+
+The resulting image is a private experimental build. This step does not write to the clock. After connecting the device in fastboot, use `--action inspect` for preflight checks. Set `a` to the actual inactive target slot.
+
+```sh
+python3 ports/lenovo-smart-clock/tools/cube_install.py --work /private/cube-build --serial YOUR_SERIAL --slot a --action inspect
+```
+
+With the same arguments, `--action trial` **overwrites the inactive system partition** and boots temporarily. After checking the screen, connectivity, and recovery path, return to fastboot and use `--action install --trial-confirmed` with the same arguments to write boot and select the slot. The user must confirm that the exact image was tested; the tool cannot establish this itself. It does not unlock the device, mark a boot successful, or enable shared settings and updates. See [section 5](#5-test-and-install-with-fastboot) for the requirements.
+
+To fetch only public inputs first, run `python3 ports/lenovo-smart-clock/tools/prepare_cube_inputs.py --output /private/cube-inputs`; the output directory must be new.
+
 ## 1. Requirements
 
 - The target clock and its power supply, a USB data cable, Python 3, and `fastboot` from Android platform-tools. Building images on Linux also requires root, `debugfs`, `mke2fs`, registered `qemu-arm` binfmt support, and tools needed to build the Alpine rootfs. Audio extraction from the APK requires JADX.
