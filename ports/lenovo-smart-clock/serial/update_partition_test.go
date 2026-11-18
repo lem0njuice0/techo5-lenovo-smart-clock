@@ -99,13 +99,19 @@ func TestCubeInactiveExclusiveOpenLive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f, err := openCubePartition(p, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-	if second, err := openCubePartition(p, true); err == nil {
-		second.Close()
-		t.Fatal("accepted second exclusive open")
+	for _, name := range []string{"system_" + target, "boot_" + target, "misc"} {
+		part, err := discoverCubePartition("/sys/class/block", "/dev", name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f, err := openCubePartition(part, true)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		defer f.Close()
+		if second, err := openCubePartition(part, true); err == nil {
+			second.Close()
+			t.Fatalf("accepted second exclusive open of %s", name)
+		}
 	}
 }

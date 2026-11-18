@@ -87,6 +87,13 @@ func serve(rw io.ReadWriter) {
 }
 
 func main() {
+	if len(os.Args) > 1 {
+		if err := runOptionalUpdateCommand(os.Args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	for {
 		f, err := os.OpenFile("/dev/ttyGS0", os.O_RDWR, 0)
 		if err == nil {

@@ -23,6 +23,9 @@ def main():
     p.add_argument("--expect-test-audio", action="store_true", help="expect experimental audio opt-in marker")
     p.add_argument("--expect-test-bluetooth", action="store_true", help="expect Bluetooth startup opt-in marker")
     p.add_argument("--expect-shared-data", action="store_true", help="expect experimental shared-data startup")
+    p.add_argument("--expect-update-public-key", type=Path, help="expect the explicitly supplied experimental update public key")
+    p.add_argument("--expect-update-watch", action="store_true", help="expect the experimental trial watcher")
+    p.add_argument("--expect-update-fault-test", action="store_true", help="expect a private, intentionally failing trial image")
     p.add_argument("--expect-japanese-font", action="store_true", help="check the pinned Japanese font and license")
     p.add_argument("--helpers", type=Path, help="directory of verified upstream helper inputs")
     p.add_argument("--audio", type=Path, help="expected private audio-table directory")
@@ -66,6 +69,19 @@ def main():
             checks["bluetooth_bridge_present"] = bool(read("/usr/local/bin/btbridge"))
         if a.expect_shared_data:
             checks["shared_data_programs_present"] = bool(read("/usr/local/libexec/cube_shared_data.py")) and bool(read("/usr/local/sbin/cube-shared-mount"))
+        if a.expect_update_public_key is not None:
+            public = a.expect_update_public_key.read_bytes()
+            checks["update_public_key_matches"] = len(public) == 32 and read("/etc/techo5-cube/update-signing.pub") == public
+            checks["experimental_update_command_present"] = serial is not None and b"ota-fetch" in serial and b"ota-stage" in serial and b"ota-monitor" in serial and b"ota-watch" in serial
+            checks["updates_require_shared_data"] = a.expect_shared_data
+        else:
+            checks["no_unexpected_update_public_key"] = read("/etc/techo5-cube/update-signing.pub") is None
+        checks["update_watch_matches_requested_mode"] = (b"/usr/local/sbin/cube-update-watch" in inittab) == a.expect_update_watch
+        if a.expect_update_watch:
+            checks["update_watch_components_present"] = a.expect_update_public_key is not None and bool(read("/usr/local/sbin/cube-update-watch"))
+        checks["update_fault_mode_matches_request"] = (serial is not None and b"CUBE-OTA-FAULT-TEST-DO-NOT-RELEASE" in serial) == a.expect_update_fault_test
+        if a.expect_update_fault_test:
+            checks["fault_test_requires_watch"] = a.expect_update_watch
         if a.expect_japanese_font:
             checks["japanese_font_matches"] = sha(read("/data/misc/techo5/fonts/zz-noto-sans-jp.ttf")) == "d5f4601b405aa7db4bbbf9dfe6c21aae00f104a0d74ac1e69b2a219194650c6a"
             checks["japanese_font_license_present"] = bool(read("/data/misc/techo5/licenses/noto-sans-jp-OFL.txt"))

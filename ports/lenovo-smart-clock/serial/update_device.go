@@ -11,6 +11,10 @@ import (
 )
 
 func readCubeMarker(path string) ([]byte, error) {
+	return readCubeRootFile(path, 128)
+}
+
+func readCubeRootFile(path string, max int64) ([]byte, error) {
 	fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
 	if err != nil {
 		return nil, err
@@ -22,10 +26,17 @@ func readCubeMarker(path string) ([]byte, error) {
 		return nil, err
 	}
 	st, ok := info.Sys().(*syscall.Stat_t)
-	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 || st.Uid != 0 || st.Nlink != 1 || info.Size() > 128 {
+	if !ok || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 || st.Uid != 0 || st.Nlink != 1 || info.Size() < 0 || info.Size() > max {
 		return nil, errors.New("unsafe cube marker")
 	}
-	return io.ReadAll(io.LimitReader(f, 129))
+	data, err := io.ReadAll(io.LimitReader(f, max+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > max {
+		return nil, errors.New("trusted file too large")
+	}
+	return data, nil
 }
 
 // inspectCubeUpdateDevice only reads system state and block geometry. It does

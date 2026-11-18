@@ -62,8 +62,22 @@ func markSlotGood(b []byte, cmdline, target string) ([]byte, error) {
 	if target == "b" {
 		selected, stock = 12, 8
 	}
-	if b[stock] == 0 || b[stock+2] != 1 || b[selected] <= b[stock] || b[selected] == 0 || (b[selected+1] == 0 && b[selected+2] == 0) {
+	if b[stock] == 0 || b[stock+2] != 1 || b[selected] <= b[stock] || b[selected] == 0 {
 		return nil, errors.New("slot state does not preserve the successful stock slot and preferred target")
+	}
+	if b[selected+1] == 0 && b[selected+2] == 0 {
+		roots := 0
+		for _, word := range strings.Fields(cmdline) {
+			if strings.HasPrefix(word, "techo5.cube.root=") {
+				roots++
+				if word != "techo5.cube.root=system_"+target {
+					return nil, errors.New("boot root differs from selected slot")
+				}
+			}
+		}
+		if roots != 1 {
+			return nil, errors.New("missing or ambiguous boot root")
+		}
 	}
 	out := append([]byte(nil), b...)
 	out[selected+1], out[selected+2] = 0, 1

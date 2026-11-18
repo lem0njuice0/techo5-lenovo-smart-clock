@@ -9,7 +9,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"time"
 )
 
 var errCubeTrialUnhealthy = errors.New("trial did not become healthy before timeout")
@@ -93,14 +92,15 @@ func monitorCubeTrial(ctx context.Context, publicKey ed25519.PublicKey) error {
 	if err != nil {
 		return err
 	}
-	pid, start, err := awaitCubeHealth(ctx, 5*time.Second, 2*time.Minute, 15*time.Second, 10*time.Minute, func() (int, uint64, bool, error) {
+	interval, required, maxGap, timeout, forceUnhealthy := cubeTrialTiming()
+	pid, start, err := awaitCubeHealth(ctx, interval, required, maxGap, timeout, func() (int, uint64, bool, error) {
 		p, _, checkErr := trialIdentity(publicKey)
 		if checkErr == nil && (!bytes.Equal(p.Manifest, initial.Manifest) || !bytes.Equal(p.Signature, initial.Signature)) {
 			return 0, 0, false, errors.New("pending trial changed")
 		}
 		pid, start, processErr := findTrialDaemon("/proc", "/usr/local/bin/techo5")
 		fb, fbErr := os.Stat("/dev/fb0")
-		healthy := checkErr == nil && processErr == nil && fbErr == nil && fb.Mode()&os.ModeDevice != 0 && fb.Mode()&os.ModeCharDevice != 0
+		healthy := !forceUnhealthy && checkErr == nil && processErr == nil && fbErr == nil && fb.Mode()&os.ModeDevice != 0 && fb.Mode()&os.ModeCharDevice != 0
 		return pid, start, healthy, nil
 	})
 	if err != nil {

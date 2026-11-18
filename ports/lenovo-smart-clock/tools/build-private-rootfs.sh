@@ -14,8 +14,9 @@ export CUBE_KERNEL_OUT=${CUBE_KERNEL_OUT:?set to matching runtime kernel build o
 output=${CUBE_OUTPUT:?set a new private output directory}
 [ ! -e "$output" ] || { echo 'output already exists' >&2; exit 1; }
 [ -f "$repo/bin/echod-cube-arm" ] && [ -x "$inputs/apk.static" ] || { echo 'missing daemon or apk.static' >&2; exit 1; }
-[ -f "$port/build/cube-serial-arm" ] || { echo 'missing ARM runtime diagnostic binary' >&2; exit 1; }
-python3 - "$repo/bin/echod-cube-arm" "$port/build/cube-serial-arm" <<'PY'
+export CUBE_SERIAL=${CUBE_SERIAL:-$port/build/cube-serial-arm}
+[ -f "$CUBE_SERIAL" ] || { echo 'missing ARM runtime diagnostic binary' >&2; exit 1; }
+python3 - "$repo/bin/echod-cube-arm" "$CUBE_SERIAL" <<'PY'
 import pathlib,sys
 for name in sys.argv[1:]:
     with pathlib.Path(name).open('rb') as f: header=f.read(20)

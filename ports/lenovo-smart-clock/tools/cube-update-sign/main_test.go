@@ -46,7 +46,7 @@ func TestSignPrivateBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	out := filepath.Join(d, "out")
-	if err := run(key, sysPath, bootPath, "a", "1.2.3", 5, out); err != nil {
+	if err := run(key, sysPath, bootPath, "a", "1.2.3", 5, out, false); err != nil {
 		t.Fatal(err)
 	}
 	payload, err := os.ReadFile(filepath.Join(out, "manifest.json"))
@@ -64,11 +64,21 @@ func TestSignPrivateBundle(t *testing.T) {
 	if err := json.Unmarshal(payload, &m); err != nil || m.Board != "cube" || m.Slot != "a" || m.Sequence != 5 {
 		t.Fatal("invalid manifest")
 	}
-	if err := run(key, sysPath, bootPath, "a", "1.2.3", 5, out); err == nil {
+	if err := run(key, sysPath, bootPath, "a", "1.2.3", 5, out, false); err == nil {
 		t.Fatal("overwrote existing output")
 	}
-	if err := run(key, sysPath, bootPath, "b", "1.2.3", 5, filepath.Join(d, "wrong")); err == nil {
+	if err := run(key, sysPath, bootPath, "b", "1.2.3", 5, filepath.Join(d, "wrong"), false); err == nil {
 		t.Fatal("accepted wrong boot target")
+	}
+	copy(system[1200:], faultMarker)
+	if err := os.WriteFile(sysPath, system, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := run(key, sysPath, bootPath, "a", "1.2.3", 5, filepath.Join(d, "fault-denied"), false); err == nil {
+		t.Fatal("signed a fault image without explicit opt-in")
+	}
+	if err := run(key, sysPath, bootPath, "a", "1.2.3", 5, filepath.Join(d, "fault-test"), true); err != nil {
+		t.Fatal(err)
 	}
 	repo := filepath.Join(d, "repo")
 	if err := os.Mkdir(repo, 0700); err != nil {

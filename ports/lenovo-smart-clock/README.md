@@ -44,21 +44,37 @@ Assistant settings. After a power cycle the owner confirmed the screen,
 connectivity, Sendspin playback and voice assistant; both slots' success records
 were read back. The original
 slot-local data remains in place. A USB recovery command
-can disable shared-data startup after a detected failure; that recovery path and
-automatic rollback after a failed A/B update have not yet been tested on a
-device. Enabling shared data alone does not implement or enable OTA updates.
-Experimental signed-manifest and transactional write code has unit tests, but
-is not connected to device commands or an update service. Device identity,
-partition and mount validation, update version policy, release signing and
-trial-health handling remain prerequisites for an OTA implementation.
+can disable shared-data startup after a detected failure; that recovery path has
+not yet been tested on a device. Enabling shared data alone does not implement
+or enable OTA updates.
+Experimental signed-manifest, transactional write and trial-health code has
+unit tests. A manual command is available only in builds explicitly tagged
+`cube_update_trial`; standard builds do not include it, and no update service
+or release key is provisioned in standard builds. A private test on one unit
+fetched a signed image over HTTPS, staged it with a manual command, rebooted
+into the new slot and automatically confirmed it after a continuous health
+check. An intentionally unhealthy test
+image rebooted three times and the bootloader returned to the last successful
+slot; settings were retained. This only covers failures where the kernel boots
+and the watcher can run. A user-facing update trigger, a production release
+key and a public distribution method for vendor-dependent inputs remain
+prerequisites for a release OTA implementation.
 `tools/cube-update-sign` can produce an experimental signature and manifest
 for caller-supplied private images; it refuses a signing key located inside a
-Git worktree and does not copy or publish the images or key. Its output is not
-yet consumable by an enabled updater. Manage and protect signing keys outside
+Git worktree and does not copy or publish the images or key. Standard device
+builds cannot consume its output. Manage and protect signing keys outside
 the repository; on Windows the key file's access control must be set separately.
 For development images only, `CUBE_SHARED_DATA=1` opts into this migration;
 verify the resulting image with `--expect-shared-data`. Use a diagnostic built
 with `cube_shared` so USB recovery is available if migration fails.
+For explicitly experimental images, provide a raw 32-byte Ed25519 public key
+through `CUBE_UPDATE_PUB` alongside `CUBE_SHARED_DATA=1` and a diagnostic binary
+built with `cube_update_trial`. Check it using `verify_private_rootfs.py` with
+`--expect-shared-data` and `--expect-update-public-key`. This stages the public
+key and command only; it does not initialize a device's sequence, install a
+service, or establish a release update path. Setting `CUBE_UPDATE_WATCH=1`
+enables the experimental boot watcher; fault injection is separately gated by
+`CUBE_UPDATE_FAULT_TEST=1` and must never be used in a release.
 
 Do not use the Echo installers or release images on a Lenovo Smart Clock. A
 fresh-device installer, board-specific updates, reproducible kernel build and

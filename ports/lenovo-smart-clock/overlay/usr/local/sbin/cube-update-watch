@@ -1,0 +1,11 @@
+#!/bin/sh
+# Opt-in supervisor for signed experimental trials. It does not download or
+# start an update, and the serial helper revalidates every pending record.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export PATH
+while :; do
+    if [ -f /etc/techo5-cube/update-signing.pub ] && [ -f /data/techo5-linux/cube-update-pending.json ]; then
+        /usr/local/sbin/cube-serial ota-watch >> /data/techo5-linux/cube-update-watch.log 2>&1 || true
+    fi
+    sleep 30
+done

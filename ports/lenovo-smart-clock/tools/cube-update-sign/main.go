@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"crypto/x509"
@@ -21,6 +22,36 @@ import (
 	"runtime"
 	"strings"
 )
+
+var faultMarker = []byte("CUBE-OTA-FAULT-TEST-DO-NOT-RELEASE")
+
+func hasFaultMarker(path string) (bool, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return false, err
+	}
+	defer f.Close()
+	buf := make([]byte, 1024*1024)
+	tail := make([]byte, 0, len(faultMarker)-1)
+	for {
+		n, readErr := f.Read(buf)
+		chunk := append(tail, buf[:n]...)
+		if bytes.Contains(chunk, faultMarker) {
+			return true, nil
+		}
+		keep := len(faultMarker) - 1
+		if len(chunk) < keep {
+			keep = len(chunk)
+		}
+		tail = append(tail[:0], chunk[len(chunk)-keep:]...)
+		if readErr == io.EOF {
+			return false, nil
+		}
+		if readErr != nil {
+			return false, readErr
+		}
+	}
+}
 
 type manifest struct {
 	Format       int    `json:"format"`
@@ -197,15 +228,16 @@ func main() {
 	version := flag.String("version", "", "release version")
 	sequence := flag.Uint64("sequence", 0, "monotonic signed release sequence")
 	out := flag.String("out", "", "new private directory for manifest and signature")
+	allowFault := flag.Bool("allow-fault-test", false, "allow an intentionally failing private test image; never use for a release")
 	flag.Parse()
-	if err := run(*keyPath, *system, *boot, *slot, *version, *sequence, *out); err != nil {
+	if err := run(*keyPath, *system, *boot, *slot, *version, *sequence, *out, *allowFault); err != nil {
 		fmt.Fprintln(os.Stderr, "signing stopped:", err)
 		os.Exit(1)
 	}
 	fmt.Println("Created a signed private manifest; no image or key was copied or published.")
 }
 
-func run(keyPath, system, boot, slot, version string, sequence uint64, out string) error {
+func run(keyPath, system, boot, slot, version string, sequence uint64, out string, allowFault bool) error {
 	if keyPath == "" || system == "" || boot == "" || out == "" || (slot != "a" && slot != "b") || !versionPattern.MatchString(version) || sequence == 0 {
 		return errors.New("all arguments are required and must be valid")
 	}
@@ -215,6 +247,16 @@ func run(keyPath, system, boot, slot, version string, sequence uint64, out strin
 	}
 	if err := checkImages(system, boot, slot); err != nil {
 		return err
+	}
+	fault, err := hasFaultMarker(system)
+	if err != nil {
+		return err
+	}
+	if fault && !allowFault {
+		return errors.New("fault-injection image requires --allow-fault-test and must never be released")
+	}
+	if allowFault && !fault {
+		return errors.New("fault-test override requires a marked fault-injection image")
 	}
 	ss, sh, err := hashFile(system)
 	if err != nil {

@@ -60,6 +60,22 @@ func TestMarkBGoodRequiresValidRecoverableState(t *testing.T) {
 	}
 }
 
+func TestFinalTrialCanBeConfirmedOnlyForMatchingRunningRoot(t *testing.T) {
+	b := exampleSlotRecord()
+	b[13] = 0
+	binary.BigEndian.PutUint32(b[28:], crc32.ChecksumIEEE(b[:28]))
+	if _, err := markBGood(b, "androidboot.slot_suffix=_b"); err == nil {
+		t.Fatal("accepted missing root")
+	}
+	if _, err := markBGood(b, "androidboot.slot_suffix=_b techo5.cube.root=system_a"); err == nil {
+		t.Fatal("accepted wrong root")
+	}
+	out, err := markBGood(b, "androidboot.slot_suffix=_b techo5.cube.root=system_b")
+	if err != nil || out[14] != 1 {
+		t.Fatalf("final running trial not confirmed: %v", err)
+	}
+}
+
 func TestMiscDeviceRequiresUniqueName(t *testing.T) {
 	d := t.TempDir()
 	add := func(name string) {

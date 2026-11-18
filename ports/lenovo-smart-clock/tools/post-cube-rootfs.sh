@@ -47,6 +47,23 @@ if [ "${CUBE_SHARED_DATA:-0}" = 1 ]; then
     [ -f "$R/usr/local/libexec/cube_shared_data.py" ] && [ -f "$R/usr/local/sbin/cube-shared-mount" ] || { echo 'shared-data components are missing' >&2; exit 1; }
     printf 'TECHO5-CUBE-SHARED-ENABLE-V1\n' > "$R/etc/techo5-cube/enable-shared-data"
 fi
+if [ -n "${CUBE_UPDATE_PUB:-}" ]; then
+    [ "${CUBE_SHARED_DATA:-0}" = 1 ] || { echo 'experimental updates require shared data' >&2; exit 1; }
+    python3 - "$CUBE_UPDATE_PUB" "$CUBE_SERIAL" <<'PY'
+import os,pathlib,sys
+public=pathlib.Path(sys.argv[1]).read_bytes()
+serial=pathlib.Path(sys.argv[2]).read_bytes()
+if len(public)!=32 or b'ota-fetch' not in serial or b'ota-stage' not in serial or b'ota-monitor' not in serial or b'ota-watch' not in serial:
+    raise SystemExit('expected a raw Ed25519 public key and experimental update-enabled serial binary')
+if (b'CUBE-OTA-FAULT-TEST-DO-NOT-RELEASE' in serial) != (os.environ.get('CUBE_UPDATE_FAULT_TEST')=='1'):
+    raise SystemExit('fault injection binary must be explicitly selected and never released')
+PY
+    install -m 644 "$CUBE_UPDATE_PUB" "$R/etc/techo5-cube/update-signing.pub"
+fi
+if [ "${CUBE_UPDATE_WATCH:-0}" = 1 ]; then
+    [ -n "${CUBE_UPDATE_PUB:-}" ] && [ -f "$R/usr/local/sbin/cube-update-watch" ] || { echo 'update watcher requires an experimental public key and watcher' >&2; exit 1; }
+    printf '%s\n' '::respawn:/bin/sh /usr/local/sbin/cube-update-watch' >> "$R/etc/inittab"
+fi
 install -m 644 "$CUBE_KERNEL_OUT/drivers/misc/mediatek/connectivity/wlan/gen4-mt7668/wlan_drv_gen4_mt7668.ko" "$R/lib/modules/cube/"
 install -m 644 "$CUBE_KERNEL_OUT/drivers/misc/mediatek/connectivity/bt/mt76xx/sdio/btmtksdio.ko" "$R/lib/modules/cube/"
 chmod 755 "$R/etc/techo5-cube/rcS" "$R/usr/local/sbin/cube-run"
