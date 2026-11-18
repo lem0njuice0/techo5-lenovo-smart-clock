@@ -33,6 +33,18 @@ func TestSlotTransitionPreservesCurrentAndMakesOtherTrial(t *testing.T) {
 		if _, err := slotTransition(b, cmd+" androidboot.slot_suffix=_a", current, "prepare"); err == nil {
 			t.Fatal("accepted ambiguous slot")
 		}
+		unsafe := append([]byte(nil), b...)
+		unsafe[active+2] = 0
+		binary.BigEndian.PutUint32(unsafe[28:], crc32.ChecksumIEEE(unsafe[:28]))
+		if _, err := slotTransition(unsafe, cmd, current, "prepare"); err == nil {
+			t.Fatal("accepted unsuccessful current slot")
+		}
+		unsafe = append([]byte(nil), b...)
+		unsafe[active], unsafe[target] = 14, 15
+		binary.BigEndian.PutUint32(unsafe[28:], crc32.ChecksumIEEE(unsafe[:28]))
+		if _, err := slotTransition(unsafe, cmd, current, "prepare"); err == nil {
+			t.Fatal("accepted a target preferred over the current slot")
+		}
 		b[28] ^= 1
 		if _, err := slotTransition(b, cmd, current, "prepare"); err == nil {
 			t.Fatal("accepted invalid checksum")
