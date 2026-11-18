@@ -47,6 +47,10 @@ slot-local data remains in place. A USB recovery command
 can disable shared-data startup after a detected failure; that recovery path and
 automatic rollback after a failed A/B update have not yet been tested on a
 device. Enabling shared data alone does not implement or enable OTA updates.
+Experimental signed-manifest and transactional write code has unit tests, but
+is not connected to device commands or an update service. Device identity,
+partition and mount validation, update version policy, release signing and
+trial-health handling remain prerequisites for an OTA implementation.
 For development images only, `CUBE_SHARED_DATA=1` opts into this migration;
 verify the resulting image with `--expect-shared-data`. Use a diagnostic built
 with `cube_shared` so USB recovery is available if migration fails.
