@@ -18,6 +18,10 @@ backup and recovery path were not independently verified. A USB recovery init
 can update the daemon in the marked system without replacing its settings. It
 verifies the complete transfer and saves a copy of the previous daemon, but
 it is not a complete installer or a rollback-tested OTA mechanism.
+For an existing cube with SSH explicitly configured, `tools/update_daemon_ssh.py`
+can install a locally built daemon while retaining a copy of the old executable.
+It verifies the device marker and both transfer and startup; it is a manual
+developer tool, not an automatic rollback or signed update service.
 
 Do not use the Echo installers or release images on a Lenovo Smart Clock. A
 fresh-device installer, board-specific updates, reproducible kernel build and
