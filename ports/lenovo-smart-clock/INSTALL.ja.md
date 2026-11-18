@@ -20,18 +20,18 @@
 
 ## 実験中：準備とビルドの自動化
 
-`prepare_cube_inputs.py` は公開元から TECHO5 の補助プログラム・ウェイクワードモデルと Alpine の必要ファイルを取得し、固定された SHA-256 を検証します。純正 ROM やカーネルは取得しません。`build_cube_bundle.py` は、所有者が用意した純正データと**対応するビルド済みカーネル**を使って、抽出からイメージの構築・検証までつなぎます。まだ初期状態からの通し試験は行っていません。
+`prepare_cube_inputs.py` は公開元から TECHO5 の補助プログラム・ウェイクワードモデルと Alpine の必要ファイルを取得し、固定された SHA-256 を検証します。`build_cube_bundle.py` は、所有者の純正データを使い、Lenovo の 2019 年版カーネルソース・参照パッチ・固定バージョンのコンパイラーを取得して、カーネルのビルドからイメージの構築・検証までつなぎます。純正 ROM 全体は取得しません。新しい手順をクリーンな環境と初期状態の実機で通して試す検証は**まだ完了していません**。
 
-Linux x86_64 の専用ビルド環境で、以下のパスを実際のものに置き換えてください。root、Go、JADX、`debugfs`、`mke2fs`、登録済みの `qemu-arm`、ビルド用ツールと数 GB の空きが必要です。カーネルには本機用のランタイム init と必要なドライバーが必要です。空き容量のある作業先を指定し、`--work` 自体はまだ存在しないディレクトリにしてください。
+Linux x86_64 の専用ビルド環境で、以下のパスを実際のものに置き換えてください。root、Go、JADX、`debugfs`、`mke2fs`、登録済みの `qemu-arm`、Git、tar、make、GCC、gzip、cpio、bc、bison、flex と十分な空き容量が必要です。約 0.9 GB のソースアーカイブに加えて、展開後のソース、コンパイラー、中間ファイル、イメージを保存できる大文字・小文字を区別する Linux ファイルシステムを使ってください。WSL では仮想ディスクを置いたドライブにも空きが必要です。`--work` は存在しない、空白を含まないパスを指定してください。
 
 ```sh
 sudo python3 ports/lenovo-smart-clock/tools/build_cube_bundle.py \
   --vendor /private/source/vendor.img --oem /private/source/oem.img \
-  --kernel-out /private/kernel/out --donor-boot /private/source/boot.img \
+  --donor-boot /private/source/boot.img \
   --slot a --work /private/cube-build
 ```
 
-出力されるイメージは非公開の実験版です。この段階では時計に書き込みません。対応する機器を fastboot に接続後、まず `--action inspect` で検査できます。`a` は実際に書き込む非アクティブ側に合わせてください。
+設定が内蔵された、対応する 2019 年版の純正 boot が必要です。対応するビルド済みカーネルを使う場合は `--kernel-out`、事前に取得したハッシュ一致の Lenovo ソースを使う場合は `--lenovo-archive` を指定できます。純正 ROM や機器固有データはダウンロードしません。出力されるイメージは非公開の実験版で、この段階では時計に書き込みません。対応する機器を fastboot に接続後、まず `--action inspect` で検査できます。`a` は実際に書き込む非アクティブ側に合わせてください。
 
 ```sh
 python3 ports/lenovo-smart-clock/tools/cube_install.py --work /private/cube-build --serial YOUR_SERIAL --slot a --action inspect
@@ -46,7 +46,7 @@ python3 ports/lenovo-smart-clock/tools/cube_install.py --work /private/cube-buil
 - 対象機器、電源、データ通信に対応した USB ケーブル、Python 3、Android platform-tools の `fastboot`。Linux でイメージを作る場合は root 権限、`debugfs`、`mke2fs`、`qemu-arm` の binfmt 登録と Alpine のビルドに必要なツールも必要です。APK の音声設定抽出には JADX が必要です。
 - 所有者が用意した対象機器の純正 `vendor`、`oem` の raw ext4 イメージまたは展開済みディレクトリ、および対象機器に対応する純正 boot イメージ。取得や復元の一般向け手順はまだありません。重要なデータと復旧方法は事前に確認してください。
 - ブートローダーと AVB が解除済みの機器。解除方法や必要な資格情報はこのリポジトリでは提供していません。解除で初期化される場合があります。
-- Lenovo の 2019 年公開カーネルソースに必要なパッチを適用したもの、対応する純正設定、ARM64 クロスコンパイラ。カーネルのパッチ一式や完全な取得・適用手順は未整備です。
+- 以下の手動手順では、Lenovo の 2019 年公開カーネルソースにパッチを適用したもの、対応する純正設定、ARM64 クロスコンパイラが必要です。上記の実験的な自動化ではソース・パッチ・コンパイラーを取得し、純正 boot から設定を抽出しますが、通し試験はまだです。
 - ルートファイルシステム用の Alpine `apk.static`、`alpine-minirootfs-3.24.2-armv7.tar.gz`、ウェイクワードモデル（`.tflite` と `.json`）。`ports/lenovo-smart-clock/inputs/`、または `CUBE_INPUTS` で指定したディレクトリに置きます。これらは自動収集されません。
 
 以下のコマンドは Linux シェルで、リポジトリのルートにいる前提です。`/private/cube` と各入力パスは例です。機器のバックアップや抽出物を Git 管理対象に入れず、それぞれアクセス権を制限した場所に保管してください。書き込み先の新規ディレクトリは各ツールが作成します。

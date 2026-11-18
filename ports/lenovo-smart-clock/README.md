@@ -137,6 +137,11 @@ Their full source provenance and redistribution terms, the exact kernel build
 recipe, and all modified kernel source still need to be documented and verified
 before offering an image for distribution. Proprietary firmware, device backups,
 credentials, and extracted vendor audio data are deliberately excluded.
+`tools/build_cube_kernel_from_source.py` provides an experimental automated
+path that retrieves the pinned Lenovo source, reference patches and compiler,
+and extracts the kernel configuration from an owner-supplied 2019 stock boot.
+The clean source-to-device workflow has not been validated end to end; the
+reference patch terms and distribution of a resulting kernel remain under review.
 `tools/build_cube_kernel.sh` records the build steps for an already patched 2019
 source tree, stock configuration, ARM64 toolchain and cube init; it does not fetch
 or apply the external reference patches. Its fresh-build path needs independent

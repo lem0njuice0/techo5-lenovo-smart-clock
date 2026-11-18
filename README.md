@@ -17,7 +17,7 @@ An experimental port of [TECHO5](https://github.com/HuskerMinion/techo5) to the 
 
 Installation requires an unlocked device, data extracted from the owner's stock firmware, a compatible kernel, and a build environment. Instructions for obtaining stock data, unlocking, reproducing the kernel build, marking a boot successful, and recovery are not yet complete. There is no ready-to-flash public image. The installation guide describes the current developer workflow and its gaps; it has not been validated end to end from a factory-state device.
 
-An [experimental preparation and build tool](ports/lenovo-smart-clock/INSTALL.en.md#experimental-automated-preparation-and-build) downloads pinned public inputs and builds a private bundle when the owner supplies stock data and a compatible prebuilt kernel. A separate installer provides inspect, trial, and install stages. The complete build and installation workflow is still awaiting end-to-end testing.
+An [experimental preparation and build tool](ports/lenovo-smart-clock/INSTALL.en.md#experimental-automated-preparation-and-build) downloads pinned public inputs and kernel source and builds a private bundle using the owner's stock data. A separate installer provides inspect, trial, and install stages. The complete source-to-device workflow is still awaiting end-to-end testing.
 
 ## Feature status
 

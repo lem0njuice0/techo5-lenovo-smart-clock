@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Build an experimental private bundle from owner's stock data and a built kernel.
+"""Build an experimental private bundle from the owner's stock data.
 
 Linux x86_64 only. Does not unlock, flash, reboot, or access any device.
-The kernel must be built separately and contain the matching cube runtime init.
+Builds a kernel from Lenovo's published source unless --kernel-out is provided.
 """
 import argparse
 import hashlib
@@ -28,7 +28,9 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--vendor', type=Path, required=True, help='owner vendor raw ext4 image or directory')
     p.add_argument('--oem', type=Path, required=True, help='owner OEM raw ext4 image or directory')
-    p.add_argument('--kernel-out', type=Path, required=True, help='compatible prebuilt kernel output directory')
+    p.add_argument('--kernel-out', type=Path, help='optional compatible prebuilt kernel output directory')
+    p.add_argument('--lenovo-archive', type=Path, help='optional local copy of the exact pinned Lenovo source archive')
+    p.add_argument('--jobs', type=int, default=4, help='parallel kernel build jobs (default: 4)')
     p.add_argument('--donor-boot', type=Path, required=True, help='owner matching stock boot image')
     p.add_argument('--slot', choices=('a', 'b'), required=True, help='target inactive slot; must match boot image')
     p.add_argument('--work', type=Path, required=True, help='new private working directory; needs several GB free')
@@ -45,12 +47,14 @@ def main():
     work = a.work.resolve()
     if work.exists():
         p.error('work must be a new directory')
-    for name in ('vendor', 'oem', 'kernel_out', 'donor_boot'):
+    for name in ('vendor', 'oem', 'donor_boot'):
         setattr(a, name, getattr(a, name).resolve(strict=True))
-    kernel = a.kernel_out / 'arch/arm64/boot/Image.gz'
-    dtb = a.kernel_out / 'arch/arm64/boot/dts/mediatek/mt8167s_ref.dtb'
-    if not kernel.is_file() or not dtb.is_file() or not a.donor_boot.is_file():
-        p.error('kernel Image.gz, DTB, or donor boot is missing')
+    if a.kernel_out:
+        a.kernel_out = a.kernel_out.resolve(strict=True)
+    if a.lenovo_archive:
+        a.lenovo_archive = a.lenovo_archive.resolve(strict=True)
+    if not a.donor_boot.is_file():
+        p.error('donor boot is missing')
     if REPO == work or REPO in work.parents:
         p.error('work must be outside the Git worktree')
     work.mkdir(parents=True, mode=0o700)
@@ -67,6 +71,22 @@ def main():
     run(['go', '-C', REPO / 'echod', 'build', '-tags', 'cube', '-o', daemon, './cmd/echod'], env)
     run(['go', '-C', REPO, 'build', '-o', btbridge, './cmd/btbridge'], env)
     run(['go', '-C', PORT / 'serial', 'build', '-tags', 'cube_slot,cube_shared', '-o', serial, '.'], env)
+    if a.kernel_out is None:
+        init = binaries / 'cube-boot-init-aarch64'
+        init_env = env.copy()
+        init_env.update({'GOARCH': 'arm64'})
+        init_env.pop('GOARM', None)
+        run(['go', '-C', PORT / 'rescue', 'build', '-tags', 'cube_boot', '-o', init, '.'], init_env)
+        cmd = [sys.executable, TOOLS / 'build_cube_kernel_from_source.py', '--donor-boot', a.donor_boot,
+               '--runtime-init', init, '--work', work / 'kernel-source', '--jobs', str(a.jobs)]
+        if a.lenovo_archive:
+            cmd += ['--lenovo-archive', a.lenovo_archive]
+        run(cmd)
+        a.kernel_out = work / 'kernel-source/kernel-build/out'
+    kernel = a.kernel_out / 'arch/arm64/boot/Image.gz'
+    dtb = a.kernel_out / 'arch/arm64/boot/dts/mediatek/mt8167s_ref.dtb'
+    if not kernel.is_file() or not dtb.is_file():
+        raise ValueError('kernel Image.gz or DTB is missing')
     env.update({'CUBE_PORT': str(PORT), 'CUBE_REPO': str(REPO), 'CUBE_INPUTS': str(inputs),
                 'CUBE_HELPERS': str(inputs / 'helpers'), 'CUBE_FIRMWARE': str(firmware),
                 'CUBE_AUDIO': str(audio), 'CUBE_KERNEL_OUT': str(a.kernel_out),

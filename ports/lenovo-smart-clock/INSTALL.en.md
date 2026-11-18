@@ -20,18 +20,18 @@ Display, touch, Wi-Fi, and other features were tested on two devices, but testin
 
 ## Experimental: automated preparation and build
 
-`prepare_cube_inputs.py` downloads public TECHO5 helpers, wake-word models, and required Alpine files from their publishers and verifies pinned SHA-256 hashes. It does not obtain a stock ROM or kernel. Given the owner's stock data and a **compatible prebuilt kernel**, `build_cube_bundle.py` runs extraction, image creation, and verification. The workflow has not yet been tested end to end from a factory-state device.
+`prepare_cube_inputs.py` downloads public TECHO5 helpers, wake-word models, and required Alpine files from their publishers and verifies pinned SHA-256 hashes. Given the owner's stock data, `build_cube_bundle.py` also downloads Lenovo's 2019 kernel source, reference patches and a pinned toolchain, builds the kernel, and runs extraction, image creation and verification. It does not download a complete stock ROM. The new source-to-device workflow has **not** yet been tested end to end from a clean environment or factory-state device.
 
-In a dedicated x86_64 Linux build environment, replace the example paths below. Root, Go, JADX, `debugfs`, `mke2fs`, registered `qemu-arm`, build tools, and several GB of free space are required. The kernel must include the cube runtime init and required drivers. Choose a work location with sufficient free space; `--work` itself must not exist yet.
+In a dedicated x86_64 Linux build environment, replace the example paths below. Root, Go, JADX, `debugfs`, `mke2fs`, registered `qemu-arm`, Git, tar, make, GCC, gzip, cpio, bc, bison, flex, and ample free disk space are required. Use a case-sensitive Linux filesystem with enough space for a roughly 0.9 GB source archive, extracted source, compiler, build intermediates and images; WSL also needs free space on the drive that stores its virtual disk. `--work` must not exist yet and must not contain whitespace.
 
 ```sh
 sudo python3 ports/lenovo-smart-clock/tools/build_cube_bundle.py \
   --vendor /private/source/vendor.img --oem /private/source/oem.img \
-  --kernel-out /private/kernel/out --donor-boot /private/source/boot.img \
+  --donor-boot /private/source/boot.img \
   --slot a --work /private/cube-build
 ```
 
-The resulting image is a private experimental build. This step does not write to the clock. After connecting the device in fastboot, use `--action inspect` for preflight checks. Set `a` to the actual inactive target slot.
+The tool requires a matching 2019 stock boot with an embedded configuration. A separately built matching kernel can instead be supplied with `--kernel-out`; a locally downloaded, hash-matching Lenovo source archive can be supplied with `--lenovo-archive`. No stock ROM or device-specific data is fetched. The resulting image is a private experimental build. This step does not write to the clock. After connecting the device in fastboot, use `--action inspect` for preflight checks. Set `a` to the actual inactive target slot.
 
 ```sh
 python3 ports/lenovo-smart-clock/tools/cube_install.py --work /private/cube-build --serial YOUR_SERIAL --slot a --action inspect
@@ -46,7 +46,7 @@ To fetch only public inputs first, run `python3 ports/lenovo-smart-clock/tools/p
 - The target clock and its power supply, a USB data cable, Python 3, and `fastboot` from Android platform-tools. Building images on Linux also requires root, `debugfs`, `mke2fs`, registered `qemu-arm` binfmt support, and tools needed to build the Alpine rootfs. Audio extraction from the APK requires JADX.
 - The owner's stock `vendor` and `oem` partitions as raw ext4 images or extracted directories, plus a compatible stock boot image. General-purpose acquisition and restoration instructions are not yet available. Check important data and recovery options before proceeding.
 - A device with both bootloader and AVB unlocked. This repository does not supply unlocking instructions or credentials. Unlocking may erase device data.
-- Lenovo's published 2019 kernel source with the required patches already applied, a matching stock configuration, and an ARM64 cross-compiler. A complete patch set and instructions for obtaining and applying it are not yet provided.
+- For the manual workflow below, Lenovo's published 2019 kernel source with the required patches already applied, a matching stock configuration, and an ARM64 cross-compiler. The experimental automated workflow above obtains the source, patches and compiler and extracts the configuration from the donor boot; it has not been validated end to end.
 - Alpine `apk.static`, `alpine-minirootfs-3.24.2-armv7.tar.gz`, and wake-word models (`.tflite` and `.json`). Place these under `ports/lenovo-smart-clock/inputs/` or the directory specified by `CUBE_INPUTS`. They are not collected automatically.
 
 The commands below assume a Linux shell at the repository root. `/private/cube` and the source paths are examples; replace them with your own. Keep backups and extracted files outside Git in access-restricted locations. Each extraction tool creates its own new output directory.
