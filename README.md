@@ -1,3 +1,5 @@
+> **Experimental Lenovo Smart Clock port:** [Status and installation notes](ports/lenovo-smart-clock/README.md) · [日本語の導入手順](ports/lenovo-smart-clock/INSTALL.ja.md). The Echo release images and installer do not support this device.
+
 <p align="center">
   <img src="logo/TECHO5_logo.png" alt="TECHO5" width="220">
 </p>
