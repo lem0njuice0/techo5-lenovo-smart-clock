@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"syscall"
+	"time"
 )
 
 func secureCubeDirectory(path string) error {
@@ -60,7 +61,7 @@ func stageCubeUpdate(publicKey ed25519.PublicKey, payload, signature []byte, roo
 	if err := secureCubeDirectory("/run/techo5"); err != nil {
 		return err
 	}
-	lock, err := acquireCubeUpdateLock("/run/techo5/cube-update.lock")
+	lock, err := waitCubeUpdateLock("/run/techo5/cube-update.lock", 10*time.Second)
 	if err != nil {
 		return err
 	}

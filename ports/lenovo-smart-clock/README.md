@@ -47,18 +47,20 @@ slot-local data remains in place. A USB recovery command
 can disable shared-data startup after a detected failure; that recovery path has
 not yet been tested on a device. Enabling shared data alone does not implement
 or enable OTA updates.
-Experimental signed-manifest, transactional write and trial-health code has
-unit tests. A manual command is available only in builds explicitly tagged
+Experimental signed-manifest, HTTPS fetch, transactional write and trial-health
+code has unit tests. The updater is available only in builds explicitly tagged
 `cube_update_trial`; standard builds do not include it, and no update service
 or release key is provisioned in standard builds. A private test on one unit
-fetched a signed image over HTTPS, staged it with a manual command, rebooted
-into the new slot and automatically confirmed it after a continuous health
-check. An intentionally unhealthy test
+used the encrypted Home Assistant `cube_update_now` action to fetch a signed
+image over HTTPS, stage it, reboot into the new slot, automatically confirm it
+after a continuous health check and remove the downloaded files. The test feed
+and temporary CA were removed afterwards. An intentionally unhealthy test
 image rebooted three times and the bootloader returned to the last successful
 slot; settings were retained. This only covers failures where the kernel boots
-and the watcher can run. A user-facing update trigger, a production release
-key and a public distribution method for vendor-dependent inputs remain
-prerequisites for a release OTA implementation.
+and the watcher can run. A configured update feed, a production release key and
+a public distribution method for vendor-dependent inputs remain prerequisites
+for a release OTA implementation. The Home Assistant action is not the upstream
+update card and is available only when the test updater's public key is present.
 `tools/cube-update-sign` can produce an experimental signature and manifest
 for caller-supplied private images; it refuses a signing key located inside a
 Git worktree and does not copy or publish the images or key. Standard device
@@ -75,6 +77,13 @@ key and command only; it does not initialize a device's sequence, install a
 service, or establish a release update path. Setting `CUBE_UPDATE_WATCH=1`
 enables the experimental boot watcher; fault injection is separately gated by
 `CUBE_UPDATE_FAULT_TEST=1` and must never be used in a release.
+
+The private rootfs builder normalizes overlay ownership and permissions before
+packing. The image verifier checks critical paths for root ownership and rejects
+group/world-writable system files; older prototype images may fail these checks.
+On a running marked cube, `tools/fix_cube_overlay_permissions.py` audits known
+affected paths; `--apply` repairs them only after checking the active root and
+slot. It does not change the other slot or the shared data filesystem.
 
 Do not use the Echo installers or release images on a Lenovo Smart Clock. A
 fresh-device installer, board-specific updates, reproducible kernel build and

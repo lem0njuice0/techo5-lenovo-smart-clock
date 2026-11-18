@@ -81,8 +81,12 @@ func watchCubeUpdate(ctx context.Context, publicKey ed25519.PublicKey) error {
 	path := "/data/techo5-linux/cube-update-pending.json"
 	p, err := readCubePending(path, publicKey)
 	if os.IsNotExist(err) {
+		err = cleanupCubeIncoming(publicKey, false)
 		lock.Close()
-		return nil
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 	if err != nil {
 		lock.Close()
@@ -162,6 +166,12 @@ func watchCubeUpdate(ctx context.Context, publicKey ed25519.PublicKey) error {
 		return nil
 	}
 	err = removeCubePending(path, publicKey, p)
+	if err == nil {
+		err = cleanupCubeIncoming(publicKey, true)
+		if os.IsNotExist(err) {
+			err = nil
+		}
+	}
 	lock.Close()
 	return err
 }

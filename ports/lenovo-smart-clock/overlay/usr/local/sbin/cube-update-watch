@@ -4,7 +4,7 @@
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 export PATH
 while :; do
-    if [ -f /etc/techo5-cube/update-signing.pub ] && [ -f /data/techo5-linux/cube-update-pending.json ]; then
+    if [ -f /etc/techo5-cube/update-signing.pub ] && { [ -f /data/techo5-linux/cube-update-pending.json ] || [ -f /data/techo5-linux/incoming/manifest.json ]; }; then
         /usr/local/sbin/cube-serial ota-watch >> /data/techo5-linux/cube-update-watch.log 2>&1 || true
     fi
     sleep 30

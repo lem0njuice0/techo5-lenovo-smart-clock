@@ -53,6 +53,12 @@ if [ -f "$repo/bin/tailscaled-arm64" ]; then
 fi
 mkdir -p "$stage/overlay/usr/share/licenses"
 cp -a "$repo/tools/linux/licenses/." "$stage/overlay/usr/share/licenses/"
+# A Windows checkout may report every overlay file as uid 1000, mode 0777.
+# The upstream rootfs builder preserves tar ownership, so normalize the private
+# staging tree before packing it. mkrootfs restores script executable modes.
+chown -R root:root "$stage/overlay"
+find "$stage/overlay" -type d -exec chmod 755 {} +
+find "$stage/overlay" -type f -exec chmod 644 {} +
 cp "$repo/tools/linux/slotctl" "$repo/tools/linux/bootctl" "$repo/tools/linux/techo5-lib.sh" "$repo/tools/linux/mkrootfs.sh" "$repo/tools/linux/packages-rootfs.txt" "$stage/tools/"
 printf '\nwpa_supplicant\npython3\ni2c-tools\niproute2\n' >> "$stage/tools/packages-rootfs.txt"
 cp "$port/tools/post-cube-rootfs.sh" "$stage/tools/rootfs-post.sh"

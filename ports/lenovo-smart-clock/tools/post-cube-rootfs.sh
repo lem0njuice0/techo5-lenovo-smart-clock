@@ -53,7 +53,7 @@ if [ -n "${CUBE_UPDATE_PUB:-}" ]; then
 import os,pathlib,sys
 public=pathlib.Path(sys.argv[1]).read_bytes()
 serial=pathlib.Path(sys.argv[2]).read_bytes()
-if len(public)!=32 or b'ota-fetch' not in serial or b'ota-stage' not in serial or b'ota-monitor' not in serial or b'ota-watch' not in serial:
+if len(public)!=32 or any(x not in serial for x in (b'ota-fetch',b'ota-check',b'ota-update',b'ota-stage',b'ota-monitor',b'ota-watch')):
     raise SystemExit('expected a raw Ed25519 public key and experimental update-enabled serial binary')
 if (b'CUBE-OTA-FAULT-TEST-DO-NOT-RELEASE' in serial) != (os.environ.get('CUBE_UPDATE_FAULT_TEST')=='1'):
     raise SystemExit('fault injection binary must be explicitly selected and never released')

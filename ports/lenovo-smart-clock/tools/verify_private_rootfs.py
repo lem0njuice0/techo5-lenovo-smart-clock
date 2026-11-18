@@ -6,6 +6,7 @@ Passing checks does not establish boot, peripheral support, or recovery safety.
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -43,6 +44,11 @@ def main():
             subprocess.run(["debugfs", "-R", f"dump {path} payload", str(image)], cwd=tmp, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True)
             return out.read_bytes() if out.is_file() else None
         def sha(b): return hashlib.sha256(b).hexdigest() if b is not None else None
+        def root_owned_not_writable(path):
+            result = subprocess.run(["debugfs", "-R", f"stat {path}", str(image)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True, check=True)
+            mode = re.search(r"\bMode:\s+([0-7]+)", result.stdout)
+            owner = re.search(r"\bUser:\s+(\d+)", result.stdout)
+            return bool(mode and owner and int(owner.group(1)) == 0 and int(mode.group(1), 8) & 0o022 == 0)
         marker = read("/etc/techo5-cube-root")
         inittab = read("/etc/inittab") or b""
         daemon = read("/usr/local/bin/techo5")
@@ -72,13 +78,17 @@ def main():
         if a.expect_update_public_key is not None:
             public = a.expect_update_public_key.read_bytes()
             checks["update_public_key_matches"] = len(public) == 32 and read("/etc/techo5-cube/update-signing.pub") == public
-            checks["experimental_update_command_present"] = serial is not None and b"ota-fetch" in serial and b"ota-stage" in serial and b"ota-monitor" in serial and b"ota-watch" in serial
+            checks["experimental_update_command_present"] = serial is not None and all(x in serial for x in (b"ota-fetch", b"ota-check", b"ota-update", b"ota-stage", b"ota-monitor", b"ota-watch"))
             checks["updates_require_shared_data"] = a.expect_shared_data
         else:
             checks["no_unexpected_update_public_key"] = read("/etc/techo5-cube/update-signing.pub") is None
         checks["update_watch_matches_requested_mode"] = (b"/usr/local/sbin/cube-update-watch" in inittab) == a.expect_update_watch
         if a.expect_update_watch:
             checks["update_watch_components_present"] = a.expect_update_public_key is not None and bool(read("/usr/local/sbin/cube-update-watch"))
+        for path in ("/etc", "/etc/techo5-cube", "/etc/inittab", "/usr", "/usr/local", "/usr/local/sbin", "/usr/local/libexec", "/usr/local/libexec/cube_shared_data.py", "/usr/local/sbin/cube-run", "/usr/local/sbin/cube-serial"):
+            checks["safe_permissions:" + path] = root_owned_not_writable(path)
+        if a.expect_update_watch:
+            checks["safe_permissions:/usr/local/sbin/cube-update-watch"] = root_owned_not_writable("/usr/local/sbin/cube-update-watch")
         checks["update_fault_mode_matches_request"] = (serial is not None and b"CUBE-OTA-FAULT-TEST-DO-NOT-RELEASE" in serial) == a.expect_update_fault_test
         if a.expect_update_fault_test:
             checks["fault_test_requires_watch"] = a.expect_update_watch

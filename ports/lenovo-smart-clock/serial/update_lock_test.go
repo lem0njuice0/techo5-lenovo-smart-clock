@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestCubeUpdateLock(t *testing.T) {
@@ -42,4 +43,18 @@ func TestCubeUpdateLock(t *testing.T) {
 		f.Close()
 		t.Fatal("followed symlink")
 	}
+}
+
+func TestCubeUpdateLockWaitsForBriefContention(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "update.lock")
+	first, err := acquireCubeUpdateLock(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { time.Sleep(100 * time.Millisecond); first.Close() }()
+	second, err := waitCubeUpdateLock(path, 2*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.Close()
 }

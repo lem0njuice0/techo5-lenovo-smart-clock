@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // openCubeIncoming opens only files in a caller-validated, root-owned private
@@ -35,7 +36,7 @@ func openCubeIncoming(path string, max int64, dataDevice uint64) (*os.File, erro
 }
 
 func runOptionalUpdateCommand(args []string) error {
-	if len(args) != 1 || (args[0] != "ota-fetch" && args[0] != "ota-stage" && args[0] != "ota-monitor" && args[0] != "ota-watch") {
+	if len(args) != 1 || (args[0] != "ota-fetch" && args[0] != "ota-check" && args[0] != "ota-update" && args[0] != "ota-stage" && args[0] != "ota-monitor" && args[0] != "ota-watch") {
 		return errors.New("unknown experimental update command")
 	}
 	if os.Geteuid() != 0 {
@@ -56,6 +57,15 @@ func runOptionalUpdateCommand(args []string) error {
 	}
 	if args[0] == "ota-fetch" {
 		return fetchConfiguredCubeUpdate(context.Background(), ed25519.PublicKey(key))
+	}
+	if args[0] == "ota-update" {
+		for _, command := range []string{"ota-fetch", "ota-check", "ota-stage"} {
+			if err := runOptionalUpdateCommand([]string{command}); err != nil {
+				return err
+			}
+		}
+		fmt.Println("Update staged; rebooting into the verified trial.")
+		return rebootStagedCubeUpdate(ed25519.PublicKey(key))
 	}
 	if err := secureCubeDirectory("/data/techo5-linux/incoming"); err != nil {
 		return err
@@ -97,6 +107,45 @@ func runOptionalUpdateCommand(args []string) error {
 	if err != nil {
 		return err
 	}
+	if args[0] == "ota-check" {
+		if err := secureCubeDirectory("/run/techo5"); err != nil {
+			return err
+		}
+		lock, err := waitCubeUpdateLock("/run/techo5/cube-update.lock", 10*time.Second)
+		if err != nil {
+			return err
+		}
+		defer lock.Close()
+		m, err := verifyCubeManifest(ed25519.PublicKey(key), payload, signature)
+		if err != nil {
+			return err
+		}
+		current, nodes, err := inspectCubeUpdateDevice(m)
+		if err != nil {
+			return err
+		}
+		floor, err := readCubeSequence("/data/techo5-linux/cube-update-sequence")
+		if err != nil {
+			return err
+		}
+		var systemSize, bootSize int64
+		for _, node := range nodes {
+			if node.name == "system_"+m.Slot {
+				systemSize = node.size
+			}
+			if node.name == "boot_"+m.Slot {
+				bootSize = node.size
+			}
+		}
+		if _, _, _, err := validateSignedBundle(ed25519.PublicKey(key), payload, signature, current, floor, systemSize, bootSize, system, boot); err != nil {
+			return err
+		}
+		if err := checkCubeCandidateImage(system, key); err != nil {
+			return err
+		}
+		fmt.Println("Signed candidate, shared-data support and automatic watcher verified.")
+		return nil
+	}
 	if err := stageCubeUpdate(ed25519.PublicKey(key), payload, signature, system, boot); err != nil {
 		return err
 	}
@@ -110,7 +159,7 @@ func fetchConfiguredCubeUpdate(ctx context.Context, key ed25519.PublicKey) error
 	if err := secureCubeDirectory("/run/techo5"); err != nil {
 		return err
 	}
-	lock, err := acquireCubeUpdateLock("/run/techo5/cube-update.lock")
+	lock, err := waitCubeUpdateLock("/run/techo5/cube-update.lock", 10*time.Second)
 	if err != nil {
 		return err
 	}

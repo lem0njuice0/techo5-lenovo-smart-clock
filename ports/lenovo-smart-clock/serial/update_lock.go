@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"syscall"
+	"time"
 )
 
 // Lock a root-owned path on a local runtime filesystem before preflight, then
@@ -32,4 +33,21 @@ func acquireCubeUpdateLock(path string) (*os.File, error) {
 		return nil, err
 	}
 	return f, nil
+}
+
+func waitCubeUpdateLock(path string, timeout time.Duration) (*os.File, error) {
+	if timeout <= 0 || timeout > 30*time.Second {
+		return nil, errors.New("invalid update lock timeout")
+	}
+	deadline := time.Now().Add(timeout)
+	for {
+		f, err := acquireCubeUpdateLock(path)
+		if err == nil {
+			return f, nil
+		}
+		if (!errors.Is(err, syscall.EWOULDBLOCK) && !errors.Is(err, syscall.EAGAIN)) || time.Now().After(deadline) {
+			return nil, err
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
 }
