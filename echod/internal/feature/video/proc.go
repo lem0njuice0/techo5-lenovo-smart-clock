@@ -167,7 +167,7 @@ var shellPath = "/bin/sh"
 // reads as a command.
 func wrap(path string, args []string) (string, []string) {
 	// The kernel's choice when memory runs out, before anything of the daemon's.
-	script := "echo 1000 > /proc/self/oom_score_adj && "
+	script := oomAdjustment()
 	for _, l := range limits {
 		script += "ulimit " + l + " && "
 	}

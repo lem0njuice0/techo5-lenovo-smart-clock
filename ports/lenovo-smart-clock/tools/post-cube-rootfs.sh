@@ -43,6 +43,10 @@ if [ "${CUBE_BLUETOOTH:-0}" = 1 ]; then
     [ -x "$R/usr/local/bin/btbridge" ] && [ -x "$R/usr/bin/bluealsa" ] && [ -x "$R/usr/lib/bluetooth/bluetoothd" ] || { echo 'Bluetooth components are missing' >&2; exit 1; }
     : > "$R/etc/techo5-cube/enable-unverified-bluetooth"
 fi
+if [ "${CUBE_SHARED_DATA:-0}" = 1 ]; then
+    [ -f "$R/usr/local/libexec/cube_shared_data.py" ] && [ -f "$R/usr/local/sbin/cube-shared-mount" ] || { echo 'shared-data components are missing' >&2; exit 1; }
+    printf 'TECHO5-CUBE-SHARED-ENABLE-V1\n' > "$R/etc/techo5-cube/enable-shared-data"
+fi
 install -m 644 "$CUBE_KERNEL_OUT/drivers/misc/mediatek/connectivity/wlan/gen4-mt7668/wlan_drv_gen4_mt7668.ko" "$R/lib/modules/cube/"
 install -m 644 "$CUBE_KERNEL_OUT/drivers/misc/mediatek/connectivity/bt/mt76xx/sdio/btmtksdio.ko" "$R/lib/modules/cube/"
 chmod 755 "$R/etc/techo5-cube/rcS" "$R/usr/local/sbin/cube-run"

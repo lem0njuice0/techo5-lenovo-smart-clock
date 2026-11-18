@@ -22,6 +22,7 @@ def main():
     p.add_argument("--serial", type=Path, help="expected runtime diagnostic binary")
     p.add_argument("--expect-test-audio", action="store_true", help="expect experimental audio opt-in marker")
     p.add_argument("--expect-test-bluetooth", action="store_true", help="expect Bluetooth startup opt-in marker")
+    p.add_argument("--expect-shared-data", action="store_true", help="expect experimental shared-data startup")
     p.add_argument("--expect-japanese-font", action="store_true", help="check the pinned Japanese font and license")
     p.add_argument("--helpers", type=Path, help="directory of verified upstream helper inputs")
     p.add_argument("--audio", type=Path, help="expected private audio-table directory")
@@ -51,6 +52,7 @@ def main():
             "touch_firmware_absent": read("/lib/firmware/FT6336U_Holitech.bin") is None and read("/lib/firmware/FT6336U_KD.bin") is None,
             "audio_marker_matches_requested_mode": (read("/etc/techo5-cube/enable-unverified-audio") is not None) == a.expect_test_audio,
             "bluetooth_marker_matches_requested_mode": (read("/etc/techo5-cube/enable-unverified-bluetooth") is not None) == a.expect_test_bluetooth,
+            "shared_marker_matches_requested_mode": (read("/etc/techo5-cube/enable-shared-data") == b"TECHO5-CUBE-SHARED-ENABLE-V1\n") if a.expect_shared_data else (read("/etc/techo5-cube/enable-shared-data") is None),
             "daemon_matches": sha(daemon) == sha(a.daemon.read_bytes()),
             "daemon_arm32": daemon is not None and daemon[:5] == b"\x7fELF\x01" and daemon[18:20] == b"\x28\x00",
             "wifi_module_present": bool(read("/lib/modules/cube/wlan_drv_gen4_mt7668.ko")),
@@ -62,6 +64,8 @@ def main():
             checks["runtime_diagnostic_matches"] = sha(serial) == sha(a.serial.read_bytes())
         if a.expect_test_bluetooth:
             checks["bluetooth_bridge_present"] = bool(read("/usr/local/bin/btbridge"))
+        if a.expect_shared_data:
+            checks["shared_data_programs_present"] = bool(read("/usr/local/libexec/cube_shared_data.py")) and bool(read("/usr/local/sbin/cube-shared-mount"))
         if a.expect_japanese_font:
             checks["japanese_font_matches"] = sha(read("/data/misc/techo5/fonts/zz-noto-sans-jp.ttf")) == "d5f4601b405aa7db4bbbf9dfe6c21aae00f104a0d74ac1e69b2a219194650c6a"
             checks["japanese_font_license_present"] = bool(read("/data/misc/techo5/licenses/noto-sans-jp-OFL.txt"))

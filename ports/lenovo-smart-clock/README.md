@@ -8,6 +8,9 @@ Bluetooth speaker playback were confirmed by the owner. These results do not cov
 every firmware revision. Camera support is disabled; the Echo OTA updater must
 not be used for this device. On-device wake-word recognition and response were
 also confirmed; recovery from an unbootable image still needs a device test.
+On the second unit, a short H.264/AAC video was confirmed with picture and
+sound after the cube-specific decoder startup fix. This does not establish
+support for every codec, streaming source, or live video feature.
 
 ## Current status
 
@@ -36,6 +39,9 @@ mounted. The original slot-local data remains in place. A USB recovery command
 can disable shared-data startup after a detected failure; that recovery path and
 data preservation across an actual A/B update have not yet been tested on a
 device. Enabling shared data alone does not implement or enable OTA updates.
+For development images only, `CUBE_SHARED_DATA=1` opts into this migration;
+verify the resulting image with `--expect-shared-data`. Use a diagnostic built
+with `cube_shared` so USB recovery is available if migration fails.
 
 Do not use the Echo installers or release images on a Lenovo Smart Clock. A
 fresh-device installer, board-specific updates, reproducible kernel build and
