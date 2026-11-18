@@ -1,7 +1,7 @@
 # Lenovo Smart Clock (first generation) experimental port
 
 This is a work-in-progress port of TECHO5 for the CD-24501F (`cube`). It is
-based on upstream commit `41001e543df805a7ab99ea8a16159ea2d7a77355` and the
+based on upstream main commit `8fdeba8b` (after release v1.6.44) and the
 Lenovo 2019 kernel. On one unit, display, touch, Wi-Fi, Home Assistant voice,
 the speaker, the mute indication and Music Assistant / Sendspin playback were
 confirmed by the owner. These results do not cover every upstream feature or
