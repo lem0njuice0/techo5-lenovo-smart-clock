@@ -79,7 +79,9 @@ func discoverCubePartition(sysroot, devroot, name string) (cubePartitionNode, er
 func openCubePartition(p cubePartitionNode, write bool) (*os.File, error) {
 	flags := syscall.O_RDONLY | syscall.O_CLOEXEC | syscall.O_NOFOLLOW
 	if write {
-		flags = syscall.O_RDWR | syscall.O_CLOEXEC | syscall.O_NOFOLLOW | syscall.O_SYNC
+		// On Linux an exclusive block-device open fails if it is mounted or
+		// otherwise claimed, and holds the claim until this descriptor closes.
+		flags = syscall.O_RDWR | syscall.O_CLOEXEC | syscall.O_NOFOLLOW | syscall.O_SYNC | syscall.O_EXCL
 	}
 	fd, err := syscall.Open(p.path, flags, 0)
 	if err != nil {

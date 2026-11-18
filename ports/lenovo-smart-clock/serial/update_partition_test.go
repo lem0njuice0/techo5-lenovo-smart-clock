@@ -76,3 +76,36 @@ func TestCubeUpdateDeviceReadOnlyLive(t *testing.T) {
 		t.Fatalf("inspection failed: %v", err)
 	}
 }
+
+// This test only opens the inactive block device and closes it, with no write
+// calls. It is separately opted in because the open requests write access.
+func TestCubeInactiveExclusiveOpenLive(t *testing.T) {
+	if os.Getenv("CUBE_LIVE_WRITE_OPEN") != "1" {
+		t.Skip("no exclusive-open test")
+	}
+	cmd, err := os.ReadFile("/proc/cmdline")
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := "a"
+	if strings.Contains(string(cmd), "androidboot.slot_suffix=_a") {
+		target = "b"
+	}
+	p, err := discoverCubePartition("/sys/class/block", "/dev", "system_"+target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _, err = inspectCubeUpdateDevice(cubeUpdateManifest{Slot: target, SystemSize: p.size, BootSize: 1024})
+	if err != nil {
+		t.Fatal(err)
+	}
+	f, err := openCubePartition(p, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+	if second, err := openCubePartition(p, true); err == nil {
+		second.Close()
+		t.Fatal("accepted second exclusive open")
+	}
+}

@@ -3,6 +3,8 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"testing"
 	"time"
 )
@@ -35,5 +37,22 @@ func TestCubeTrialHealthRequiresContinuousSameProcess(t *testing.T) {
 	}
 	if h.observe(now.Add(8*time.Minute), 43, 2, true, wait, gap) || h.observe(now.Add(9*time.Minute), 43, 3, true, wait, gap) {
 		t.Fatal("accepted reused process ID")
+	}
+}
+
+func TestAwaitCubeHealth(t *testing.T) {
+	pid, start, err := awaitCubeHealth(context.Background(), 2*time.Millisecond, 10*time.Millisecond, 30*time.Millisecond, 200*time.Millisecond, func() (int, uint64, bool, error) { return 42, 10, true, nil })
+	if err != nil || pid != 42 || start != 10 {
+		t.Fatalf("healthy trial: %d %d %v", pid, start, err)
+	}
+	_, _, err = awaitCubeHealth(context.Background(), time.Millisecond, 5*time.Millisecond, 20*time.Millisecond, 20*time.Millisecond, func() (int, uint64, bool, error) { return 0, 0, false, nil })
+	if !errors.Is(err, errCubeTrialUnhealthy) {
+		t.Fatalf("unhealthy trial did not time out: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, _, err = awaitCubeHealth(ctx, time.Millisecond, 5*time.Millisecond, 20*time.Millisecond, 20*time.Millisecond, func() (int, uint64, bool, error) { return 0, 0, false, nil })
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("trial cancellation: %v", err)
 	}
 }

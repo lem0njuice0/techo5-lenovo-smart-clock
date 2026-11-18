@@ -77,37 +77,39 @@ func checkCubeBoot(source io.ReaderAt, size int64, slot string) error {
 // unreachable from device commands until real block-device discovery, mount
 // verification, locking, version rollback policy and persistent trial-health
 // handling are implemented.
-func applySignedBundle(publicKey ed25519.PublicKey, payload, signature []byte, misc, system, boot updateBlock, cmdline, current string, minSequence uint64, systemCapacity, bootCapacity int64, rootfs, kernel io.ReaderAt) error {
+func validateSignedBundle(publicKey ed25519.PublicKey, payload, signature []byte, current string, minSequence uint64, systemCapacity, bootCapacity int64, rootfs, kernel io.ReaderAt) (cubeUpdateManifest, updateImage, updateImage, error) {
+	var empty cubeUpdateManifest
+	var noImage updateImage
 	m, err := verifyCubeManifest(publicKey, payload, signature)
 	if err != nil {
-		return err
+		return empty, noImage, noImage, err
 	}
 	if m.Sequence < minSequence {
-		return errors.New("update sequence is older than accepted sequence")
+		return empty, noImage, noImage, errors.New("update sequence is older than accepted sequence")
 	}
 	if (current != "a" && current != "b") || m.Slot == current {
-		return errors.New("update target is not inactive")
+		return empty, noImage, noImage, errors.New("update target is not inactive")
 	}
 	if m.SystemSize != systemCapacity || m.BootSize > bootCapacity {
-		return errors.New("image sizes do not fit partitions")
+		return empty, noImage, noImage, errors.New("image sizes do not fit partitions")
 	}
 	if rootfs == nil || kernel == nil {
-		return errors.New("missing image")
+		return empty, noImage, noImage, errors.New("missing image")
 	}
 	if err := checkCubeBoot(kernel, m.BootSize, m.Slot); err != nil {
-		return err
+		return empty, noImage, noImage, err
 	}
 	var magic [2]byte
 	if m.SystemSize < 1082 {
-		return errors.New("system image truncated")
+		return empty, noImage, noImage, errors.New("system image truncated")
 	}
 	if n, err := rootfs.ReadAt(magic[:], 1080); err != nil {
-		return err
+		return empty, noImage, noImage, err
 	} else if n != len(magic) {
-		return io.ErrUnexpectedEOF
+		return empty, noImage, noImage, io.ErrUnexpectedEOF
 	}
 	if magic != [2]byte{0x53, 0xef} {
-		return errors.New("system image is not ext4")
+		return empty, noImage, noImage, errors.New("system image is not ext4")
 	}
 	sh, _ := hex.DecodeString(m.SystemSHA256)
 	bh, _ := hex.DecodeString(m.BootSHA256)
@@ -115,5 +117,19 @@ func applySignedBundle(publicKey ed25519.PublicKey, payload, signature []byte, m
 	copy(r.hash[:], sh)
 	k := updateImage{source: kernel, size: m.BootSize}
 	copy(k.hash[:], bh)
+	if err := digestImage(r); err != nil {
+		return empty, noImage, noImage, err
+	}
+	if err := digestImage(k); err != nil {
+		return empty, noImage, noImage, err
+	}
+	return m, r, k, nil
+}
+
+func applySignedBundle(publicKey ed25519.PublicKey, payload, signature []byte, misc, system, boot updateBlock, cmdline, current string, minSequence uint64, systemCapacity, bootCapacity int64, rootfs, kernel io.ReaderAt) error {
+	_, r, k, err := validateSignedBundle(publicKey, payload, signature, current, minSequence, systemCapacity, bootCapacity, rootfs, kernel)
+	if err != nil {
+		return err
+	}
 	return applySlotImages(misc, system, boot, cmdline, current, r, k)
 }

@@ -51,6 +51,11 @@ Experimental signed-manifest and transactional write code has unit tests, but
 is not connected to device commands or an update service. Device identity,
 partition and mount validation, update version policy, release signing and
 trial-health handling remain prerequisites for an OTA implementation.
+`tools/cube-update-sign` can produce an experimental signature and manifest
+for caller-supplied private images; it refuses a signing key located inside a
+Git worktree and does not copy or publish the images or key. Its output is not
+yet consumable by an enabled updater. Manage and protect signing keys outside
+the repository; on Windows the key file's access control must be set separately.
 For development images only, `CUBE_SHARED_DATA=1` opts into this migration;
 verify the resulting image with `--expect-shared-data`. Use a diagnostic built
 with `cube_shared` so USB recovery is available if migration fails.

@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"os"
 	"testing"
 )
 
@@ -43,5 +44,28 @@ func TestSignedCubeManifest(t *testing.T) {
 	data, _ = json.Marshal(m)
 	if _, err := verifyCubeManifest(pub, data, ed25519.Sign(priv, data)); err == nil {
 		t.Fatal("accepted invalid slot")
+	}
+}
+
+func TestCubeManifestExternalSigner(t *testing.T) {
+	base := os.Getenv("CUBE_TEST_SIGNED_FIXTURE")
+	if base == "" {
+		t.Skip("no external signer fixture")
+	}
+	payload, err := os.ReadFile(base + "/manifest.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sig, err := os.ReadFile(base + "/manifest.sig")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pub, err := os.ReadFile(base + "/public.raw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := verifyCubeManifest(ed25519.PublicKey(pub), payload, sig)
+	if err != nil || m.Board != "cube" || m.Slot != "a" || m.Sequence != 5 {
+		t.Fatalf("external signature did not verify: %v", err)
 	}
 }
