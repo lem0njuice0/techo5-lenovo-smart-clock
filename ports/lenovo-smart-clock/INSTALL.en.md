@@ -1,0 +1,139 @@
+# First-generation Lenovo Smart Clock: experimental installation guide
+
+**English** | [日本語](INSTALL.ja.md) · [Technical notes](README.md)
+
+This guide describes the development workflow used on the CD-24501F (`cube`, 2019 version). **It is not a complete end-user installation guide.** Instructions for obtaining stock partitions, unlocking the bootloader, rebuilding the patched kernel, marking a boot successful, and full recovery are not yet complete. Inputs that are not supplied by this project are identified below. Do not use these instructions on another Lenovo Smart Clock model or an Echo.
+
+Display, touch, Wi-Fi, and other features were tested on two devices, but testing does not cover every feature, stock firmware version, or recovery method. A successful trial boot does not automatically enable persistent shared settings or updates.
+
+## Start here: what is available?
+
+| Stage | Current status | Instructions |
+| --- | --- | --- |
+| Obtain stock data and unlock the device | **Incomplete**: you must provide the data and unlock the device yourself | [1. Requirements](#1-requirements) |
+| Extract required stock files | Extraction scripts are available | [2. Extract stock inputs](#2-extract-stock-inputs) |
+| Build the kernel and userspace | Obtaining patches and configuration and reproducing the kernel build are incomplete | [3. Prepare build inputs](#3-prepare-build-inputs) |
+| Create and verify images | Experimental tools can be used with prepared inputs | [4. Create rootfs and boot images](#4-create-rootfs-and-boot-images) |
+| Trial boot and install | Overwrites the inactive slot; general-purpose boot-success instructions are incomplete | [5. Test and install with fastboot](#5-test-and-install-with-fastboot) |
+
+**This guide alone cannot complete an installation on a factory-state device.** If you cannot obtain the necessary inputs or establish unlocking and recovery, do not proceed to flashing; wait until the missing instructions are available.
+
+## 1. Requirements
+
+- The target clock and its power supply, a USB data cable, Python 3, and `fastboot` from Android platform-tools. Building images on Linux also requires root, `debugfs`, `mke2fs`, registered `qemu-arm` binfmt support, and tools needed to build the Alpine rootfs. Audio extraction from the APK requires JADX.
+- The owner's stock `vendor` and `oem` partitions as raw ext4 images or extracted directories, plus a compatible stock boot image. General-purpose acquisition and restoration instructions are not yet available. Check important data and recovery options before proceeding.
+- A device with both bootloader and AVB unlocked. This repository does not supply unlocking instructions or credentials. Unlocking may erase device data.
+- Lenovo's published 2019 kernel source with the required patches already applied, a matching stock configuration, and an ARM64 cross-compiler. A complete patch set and instructions for obtaining and applying it are not yet provided.
+- Alpine `apk.static`, `alpine-minirootfs-3.24.2-armv7.tar.gz`, and wake-word models (`.tflite` and `.json`). Place these under `ports/lenovo-smart-clock/inputs/` or the directory specified by `CUBE_INPUTS`. They are not collected automatically.
+
+The commands below assume a Linux shell at the repository root. `/private/cube` and the source paths are examples; replace them with your own. Keep backups and extracted files outside Git in access-restricted locations. Each extraction tool creates its own new output directory.
+
+## 2. Extract stock inputs
+
+Set the paths to your own files. Source files are not modified. Raw ext4 tools cannot directly consume Android sparse images.
+
+```sh
+PORT=ports/lenovo-smart-clock
+PRIVATE=/private/cube
+VENDOR_IMG=/private/source/vendor.img
+OEM_IMG=/private/source/oem.img
+mkdir -p "$PRIVATE"
+python3 "$PORT/tools/extract_stock_firmware.py" "$VENDOR_IMG" "$PRIVATE/firmware"
+python3 "$PORT/tools/extract_oem_apk.py" "$OEM_IMG" "$PRIVATE/oem-apk"
+```
+
+The `firmware` directory contains Wi-Fi/Bluetooth files and a `manifest.json` with hashes. Touch firmware is not extracted. Find the actual APK filename under `oem-apk`, then replace the example below. Other stock versions may not have the same files or layout.
+
+```sh
+OEM_APK=/private/cube/oem-apk/actual-apk-filename.apk
+python3 "$PORT/tools/extract_audio_apk.py" "$OEM_APK" "$PRIVATE/audio"
+```
+
+The audio tool uses JADX to inspect `Lenovo.java` in the 2019 APK. If extraction fails, do not substitute data from another model or firmware version without establishing compatibility. Run each script with `--help` for details.
+
+## 3. Prepare build inputs
+
+On Windows, with PowerShell and Go installed, `ports/lenovo-smart-clock/tools/build-cube-userspace.ps1` builds the experimental daemon, Bluetooth bridge, diagnostic binary, and kernel init. The standard diagnostic binary does not include experimental OTA support.
+
+The following shows equivalent Linux builds. The Go version and other module requirements must be satisfied.
+
+```sh
+mkdir -p bin "$PORT/build"
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go -C echod build -tags cube -o "$(pwd)/bin/echod-cube-arm" ./cmd/echod
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o bin/btbridge-cube-arm ./cmd/btbridge
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go -C "$PORT/serial" build -tags cube_slot,cube_shared -o "$(pwd)/$PORT/build/cube-serial-arm" .
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C "$PORT/rescue" build -tags cube_boot -o "$(pwd)/$PORT/build/cube-boot-init-aarch64" .
+```
+
+Only if you have the patched kernel source and a matching configuration, you can start a build as shown below. Replace all paths with absolute paths on your system. `CUBE_KERNEL_BUILD` must not exist yet; paths must not contain spaces.
+
+```sh
+export CUBE_KERNEL_SRC=/private/source/patched-kernel
+export CUBE_STOCK_CONFIG=/private/source/stock.config
+export CUBE_RUNTIME_INIT="$(pwd)/$PORT/build/cube-boot-init-aarch64"
+export CUBE_KERNEL_BUILD="$PRIVATE/kernel-build"
+export CROSS_COMPILE=aarch64-linux-gnu-
+bash "$PORT/tools/build_cube_kernel.sh"
+export CUBE_KERNEL_OUT="$CUBE_KERNEL_BUILD/out"
+```
+
+The build script does not apply patches. Reproducing the kernel using only publicly supplied tools and inputs has not been verified.
+
+## 4. Create rootfs and boot images
+
+Place the required Alpine files and other inputs in `CUBE_INPUTS` and choose an output directory that does not exist. `CUBE_TEST_AUDIO=1` enables experimental 2019 audio initialization. Without separately supplied receiver helpers, features such as AirPlay are unavailable.
+
+```sh
+export CUBE_FIRMWARE="$PRIVATE/firmware"
+export CUBE_AUDIO="$PRIVATE/audio"
+export CUBE_INPUTS=/private/cube-inputs
+export CUBE_OUTPUT="$PRIVATE/rootfs-output"
+export CUBE_TEST_AUDIO=1
+export CUBE_BLUETOOTH=1
+sudo --preserve-env=CUBE_FIRMWARE,CUBE_AUDIO,CUBE_INPUTS,CUBE_OUTPUT,CUBE_KERNEL_OUT,CUBE_TEST_AUDIO,CUBE_BLUETOOTH bash "$PORT/tools/build-private-rootfs.sh"
+```
+
+The resulting `system_b-experimental-DO-NOT-FLASH.img` is a private experimental image. Its filename does not establish slot compatibility or safety. Shared settings and OTA are disabled by default. See the [technical notes](README.md) for the Japanese font and optional helpers.
+
+This example creates an image **for slot A**, using a compatible stock donor boot, the built kernel, and DTB. It applies only when B is the current working slot. For B, use `--experimental-system-b` and `--expect-system-b`, and change the remaining slot references accordingly.
+
+```sh
+DONOR_BOOT=/private/source/boot.img
+KERNEL_GZ="$CUBE_KERNEL_OUT/arch/arm64/boot/Image.gz"
+DTB="$CUBE_KERNEL_OUT/arch/arm64/boot/dts/mediatek/mt8167s_ref.dtb"
+BOOT="$PRIVATE/boot-a.img"
+python3 "$PORT/tools/make_diagnostic_boot.py" --experimental-system-a "$DONOR_BOOT" "$KERNEL_GZ" "$DTB" "$BOOT"
+python3 "$PORT/tools/verify_diagnostic_boot.py" --expect-system-a "$DONOR_BOOT" "$BOOT" "$KERNEL_GZ" "$DTB"
+SYSTEM="$CUBE_OUTPUT/system_b-experimental-DO-NOT-FLASH.img"
+python3 "$PORT/tools/verify_private_rootfs.py" --serial "$PORT/build/cube-serial-arm" --expect-test-audio --expect-test-bluetooth --expect-japanese-font --audio "$CUBE_AUDIO" "$SYSTEM" bin/echod-cube-arm "$CUBE_FIRMWARE" > "$PRIVATE/root-report.json"
+```
+
+Passing these checks does not guarantee that the device will boot or be recoverable. The image contains proprietary stock-derived data. Do not publish it without checking the redistribution terms.
+
+## 5. Test and install with fastboot
+
+This is a developer example. The trial **overwrites the selected inactive `system` partition**. Do not proceed if you need to preserve that slot's stock system. Establish a recovery path for your device and computer before writing.
+
+Disconnect power, connect USB, then hold volume up while reconnecting power. Confirm the clock appears in fastboot. Set `SERIAL` to the target device shown by `fastboot devices`; `BOOT_SHA256` is calculated from the verified boot image. Do not select another device.
+
+```sh
+fastboot devices
+SERIAL=your-device-serial
+fastboot -s "$SERIAL" getvar current-slot
+fastboot -s "$SERIAL" getvar unlocked
+fastboot -s "$SERIAL" getvar at-vboot-state
+BOOT_SHA256=$(sha256sum "$BOOT" | cut -d ' ' -f 1)
+python3 "$PORT/tools/install_cube_fastboot.py" --serial "$SERIAL" --slot a --boot "$BOOT" --boot-sha256 "$BOOT_SHA256" --system "$SYSTEM" --root-report "$PRIVATE/root-report.json" --action inspect
+```
+
+`inspect` validates the files and device state. For this A-slot example, B must be the current successful, bootable slot, A must be inactive, the images must fit their partitions, and bootloader and AVB must be unlocked. If a check fails, do not bypass it.
+
+### Trial boot: overwrite system A
+
+Once inspection succeeds and you understand that A will be overwritten, replace the last option in the command above with `--action trial`. The tool writes `system_a` and temporarily boots the boot image. Check the display, touch, Wi-Fi, audio, and the recovery path you need. During a temporary boot, the root slot and the bootloader's recorded current slot can differ.
+
+### Normal boot: write boot A and select A
+
+After a successful trial of the same image on the same device, return to fastboot and replace the last option with `--action install --trial-confirmed`. This writes `boot_a` and selects A. Then run `fastboot -s "$SERIAL" reboot` and check the features again.
+
+**This operation does not mark A successful.** Until it is marked successful, boot attempts are consumed and the device may return to the previous slot. General-purpose instructions for safe success registration, rollback, and migration to shared data are incomplete. This procedure alone does not enable settings preservation between slots or automatic updates.

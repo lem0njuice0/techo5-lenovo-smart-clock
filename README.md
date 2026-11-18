@@ -1,69 +1,67 @@
 # TECHO5 for Lenovo Smart Clock
 
-**日本語** | [English](README.en.md)
+**English** | [日本語](README.ja.md)
 
-初代 Lenovo Smart Clock（CD-24501F / `cube`）に [TECHO5](https://github.com/HuskerMinion/techo5) を実験的に移植したものです。画面付きの Home Assistant 音声端末や音楽プレーヤーとして使えます。
+An experimental port of [TECHO5](https://github.com/HuskerMinion/techo5) to the first-generation Lenovo Smart Clock (CD-24501F, `cube`). It can act as a Home Assistant voice satellite and music player with a touchscreen.
 
-> **開発中です。** 実機で動作を確認できた機能もありますが、すべての機能を検証できたわけではありません。初期状態から導入できるインストーラーも開発途中です。対象は 2019 年版カーネルの初代機です。Echo 用イメージ・インストーラー・OTA は使わないでください。
+> **Work in progress:** Some features have been tested on physical devices, but the port has not been tested exhaustively. A complete installer for a factory-state device is not available. The tested devices use the 2019 kernel. Do not use Echo images, installers, or OTA updates on this device.
 
-## はじめに
+## Getting started
 
-| 知りたいこと | 説明 |
+| Looking for | Start here |
 | --- | --- |
-| 導入の流れ | [導入ガイド](ports/lenovo-smart-clock/INSTALL.ja.md)：必要なもの、純正データの抽出、ビルド、試験起動、書き込み |
-| 動作状況 | [下の機能一覧](#動作状況)：確認済み、未確認、利用できないもの |
-| 開発状況の詳細 | [日本語の開発状況](ports/lenovo-smart-clock/README.ja.md) / [English technical notes](ports/lenovo-smart-clock/README.md) |
-| 上流プロジェクト | [TECHO5 本家](https://github.com/HuskerMinion/techo5) / [本家 README のコピー](README.upstream.md) |
+| Installation | [Installation guide](ports/lenovo-smart-clock/INSTALL.en.md): prerequisites, extracting stock data, building, trial booting, and flashing. |
+| Feature status | [Feature tables below](#feature-status) |
+| Technical details | [English technical notes](ports/lenovo-smart-clock/README.md) / [Japanese notes](ports/lenovo-smart-clock/README.ja.md) |
+| Upstream | [TECHO5](https://github.com/HuskerMinion/techo5) / [copy of the upstream README](README.upstream.md) |
 
-### 導入前に知っておくこと
+Installation requires an unlocked device, data extracted from the owner's stock firmware, a compatible kernel, and a build environment. Instructions for obtaining stock data, unlocking, reproducing the kernel build, marking a boot successful, and recovery are not yet complete. There is no ready-to-flash public image. The installation guide describes the current developer workflow and its gaps; it has not been validated end to end from a factory-state device.
 
-導入には、解除済みの機器、所有者が用意した純正ファームウェアからの抽出データ、対応するカーネルとビルド環境が必要です。現在、**純正データの取得、ブートローダーの解除、カーネルの再ビルド、起動成功の登録、復旧については、一般向けの手順がまだ整っていません**。すぐ書き込める公開イメージもありません。[導入ガイド](ports/lenovo-smart-clock/INSTALL.ja.md)には、いま実行できる開発者向けの手順と不足している工程を記載しています。
+## Feature status
 
-## 動作状況
+These results describe the tested devices and conditions, not a guarantee for all firmware versions or configurations. Some optional features require additional build inputs or settings.
 
-以下は検証した環境での結果です。「確認済み」は全バージョン・全条件での動作保証ではありません。オプション機能にはビルド時に追加のファイルや設定が必要なものがあります。
+### Tested on hardware
 
-### 実機で確認済み
-
-| 機能 | 確認した内容・制限 |
+| Feature | What was tested and limitations |
 | --- | --- |
-| 画面・タッチ | TECHO5 画面の表示とタッチ操作 |
-| Wi-Fi | 接続と再起動後の再接続 |
-| スピーカー・音量 | 音声出力と音量操作 |
-| マイクスイッチ | 本体スイッチと画面のミュート表示の連動 |
-| Home Assistant 音声操作 | マイクからの認識とスピーカーからの応答 |
-| ウェイクワード | 画面に触れずに呼びかけて、認識と応答を確認 |
-| Music Assistant / Sendspin | 音楽再生と再起動後の再生 |
-| AirPlay / AirPlay 2 | iPhone からの音楽再生。必要なヘルパーを含めた試験版で確認 |
-| Bluetooth スピーカー | スマートフォンの接続・音楽再生・再起動後の再接続 |
-| 日本語表示 | 日本語フォントを追加した試験版で曲名・通知などを確認 |
-| 動画再生 | 短い H.264/AAC 動画の映像と音声。ほかの形式や配信元は未確認 |
-| A/B スロットと設定保持 | 共通データ領域を使い、スロット切り替え後の Wi-Fi・Home Assistant 接続を確認 |
-| 実験的 OTA 更新 | 2 台目で署名付き HTTPS 更新と、カーネルと監視処理が起動する場合の切り戻しを確認。正式配信は未整備 |
+| Display and touch | TECHO5 interface and touch input |
+| Wi-Fi | Connecting and reconnecting after reboot |
+| Speaker and volume | Audio output and volume control |
+| Microphone switch | Physical switch and on-screen mute indicator |
+| Home Assistant voice | Speech recognition and spoken responses through the clock |
+| Wake word | Hands-free wake, recognition, and response |
+| Music Assistant / Sendspin | Music playback, including after reboot |
+| AirPlay / AirPlay 2 | Music from an iPhone, with the required helpers in a test build |
+| Bluetooth speaker | Pairing, playback, and reconnecting after reboot |
+| Japanese text | Song titles, notifications, and other text with a Japanese font installed |
+| Video | A short H.264/AAC clip with picture and sound; other formats and sources are untested |
+| A/B slots and settings | Wi-Fi and Home Assistant settings retained across slot switches using shared data |
+| Experimental OTA | Signed HTTPS update and rollback on the second unit when the kernel and health watcher could run. No production feed is available |
 
-### 未確認・未完成
+### Untested or incomplete
 
-| 機能・項目 | 現在の状態 |
+| Feature or area | Current status |
 | --- | --- |
-| Spotify Connect | 対応ヘルパーを組み込めるが、実機での再生は未確認 |
-| すべての動画形式・ストリーミング | 短い動画以外は未検証。YouTube の視聴ページ URL をそのまま再生できるとは限らない |
-| Bluetooth のその他の用途 | スピーカー以外、BLE プロキシなどの動作は未確認 |
-| その他の本家機能 | 上記にない機能は、移植済み・正常動作済みと判断しないでください |
-| 自動更新の一般公開 | 公開更新先・正式な署名鍵が未整備。1 台目の OTA は未試験 |
-| 復旧 | 純正スロットへの切り替えは 2 台目で確認。完全バックアップからの復元、起動しないカーネルからの自動復旧は未確認 |
-| 初期状態からの導入 | 純正データ取得、解除、カーネルの再現、起動成功の登録まで一通り行う一般向け手順は未完成 |
+| Spotify Connect | A helper can be included, but playback has not been tested on hardware |
+| Other video formats and streams | Not comprehensively tested; a YouTube watch-page URL may not play directly |
+| Other Bluetooth uses | BLE proxy and other uses beyond speaker playback are untested |
+| Other upstream features | Features not listed as tested should not be assumed to be ported or working |
+| Public automatic updates | No production feed or release signing key; OTA has not been tested on the first unit |
+| Recovery | Return to a stock slot was tested on the second unit. Full backup restoration and automatic recovery from an unbootable kernel remain untested |
+| Factory-state installation | End-to-end instructions for stock extraction, unlocking, kernel reproduction, and marking boot successful are incomplete |
 
-### 利用できない機能・無効にしている機能
+### Unavailable or disabled
 
-| 機能 | 理由 |
+| Feature | Reason |
 | --- | --- |
-| カメラ機能 | 本機にカメラがないため無効 |
-| Echo 用の OTA・インストーラー | 対象ハードウェアが異なるため使用不可 |
+| Camera | Disabled because this device has no camera |
+| Echo OTA and installers | Designed for different hardware and must not be used here |
 
-## 純正ファームウェアについて
+## Stock firmware
 
-所有者が用意した純正 `vendor` から Wi-Fi / Bluetooth 用ファームウェアを、`oem` の APK から音声設定を抽出します。カーネルは Lenovo の 2019 年公開ソースと外部パッチを使用します。純正データや抽出したメーカー固有のデータはこのリポジトリに含まれません。詳しくは[導入ガイド](ports/lenovo-smart-clock/INSTALL.ja.md)を参照してください。
+The extraction tools take the owner's stock `vendor` partition for Wi-Fi/Bluetooth firmware and the `oem` APK for audio settings. The kernel uses Lenovo's published 2019 source and external patches. Stock firmware and extracted proprietary data are not included in this repository. See the [installation guide](ports/lenovo-smart-clock/INSTALL.en.md) and [technical notes](ports/lenovo-smart-clock/README.md).
 
-## 謝辞とライセンス
+## Credits and licensing
 
-本移植は [HuskerMinion/techo5](https://github.com/HuskerMinion/techo5) をベースにしています。カーネル関連の参考：[kortregt/lenovo-smart-clock-linux](https://github.com/kortregt/lenovo-smart-clock-linux)。TECHO5 のライセンスは [LICENSE](LICENSE) と [NOTICE](NOTICE) を参照してください。追加の入力にはそれぞれの条件が適用されます。カーネルの出典と再配布条件は確認中です。
+This port is based on [HuskerMinion/techo5](https://github.com/HuskerMinion/techo5), with kernel-related reference work from [kortregt/lenovo-smart-clock-linux](https://github.com/kortregt/lenovo-smart-clock-linux). See [LICENSE](LICENSE) and [NOTICE](NOTICE) for TECHO5. Other inputs have their own terms; kernel provenance and redistribution terms are still being reviewed.

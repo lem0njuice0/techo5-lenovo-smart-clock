@@ -1,6 +1,6 @@
 # Lenovo Smart Clock (first generation) experimental port
 
-[日本語の導入・動作状況](README.ja.md)
+**English** | [日本語](README.ja.md) · [Installation guide](INSTALL.en.md)
 
 This is a work-in-progress port of TECHO5 for the CD-24501F (`cube`). It is
 based on upstream main commit `8fdeba8b` (after release v1.6.44) and the
