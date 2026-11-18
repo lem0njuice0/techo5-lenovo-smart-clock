@@ -3,8 +3,8 @@
 
 Inspect by default. `trial` writes the explicitly selected inactive system slot
 and boots a temporary image; `install` writes its boot slot and selects it after
-the owner has checked the trial. The active stock slot is not written. The
-installer has not yet been validated on a second unit.
+the owner has checked the trial. The active slot is not written. This tool
+does not verify that settings are shared or implement automatic OTA updates.
 """
 import argparse
 import hashlib
@@ -80,7 +80,7 @@ def main():
     if active not in ("a", "b") or active == a.slot:
         p.error("the target must be the inactive slot")
     if variable(a.serial, "slot-successful:" + active).lower() != "yes" or variable(a.serial, "slot-unbootable:" + active).lower() != "no":
-        p.error("the active stock slot is not confirmed successful and bootable")
+        p.error("the active slot is not confirmed successful and bootable")
     avb = call(a.serial, "getvar", "at-vboot-state")
     if not re.search(r"\bavb-locked\s*[:=]\s*0\b", avb, re.I):
         p.error("AVB is not confirmed unlocked")
@@ -88,7 +88,7 @@ def main():
     system_size = int(variable(a.serial, "partition-size:system_" + a.slot), 0)
     if a.boot.stat().st_size > boot_size or a.system.stat().st_size != system_size:
         p.error("candidate sizes do not match the device partitions")
-    print("Preflight passed; active stock slot " + active.upper() + ", target " + a.slot.upper() + ".", flush=True)
+    print("Preflight passed; active slot " + active.upper() + ", target " + a.slot.upper() + ".", flush=True)
     if a.action == "trial":
         call(a.serial, "flash", "system_" + a.slot, str(a.system))
         print("Wrote the selected system slot; starting the temporary boot image.", flush=True)

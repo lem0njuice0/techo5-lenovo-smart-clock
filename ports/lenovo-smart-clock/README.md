@@ -20,7 +20,9 @@ boot image in `boot_b`; slot A was retained on that unit. A second stock unit
 booted from B and was installed into its inactive A slot. Its owner confirmed
 screen, touch, Wi-Fi and audio; switching from TECHO5 A back to stock B and then
 back to TECHO5 A was also tested. Both A/B success records were verified after
-the switch back. A full raw-backup restore has not been tested. A USB recovery init
+the switch back. Later, that unit's stock B was replaced with TECHO5 to test
+shared-data slot switching, so neither slot on that unit is stock now. A full
+raw-backup restore has not been tested. A USB recovery init
 can update the daemon in the marked system without replacing its settings. It
 verifies the complete transfer and saves a copy of the previous daemon, but
 it is not a complete installer or a rollback-tested OTA mechanism.
@@ -35,9 +37,13 @@ An experimental, explicitly enabled shared-data migration copies the current
 TECHO5 settings and Bluetooth state to a dedicated directory on the existing
 userdata filesystem, without formatting it. On the second unit the migration
 and startup were tested, and Wi-Fi and SSH reconnected with the shared data
-mounted. The original slot-local data remains in place. A USB recovery command
+mounted. A temporary boot of an image in the other system slot also reused
+that store; display, touch and Home Assistant were confirmed. A manual fastboot
+install then booted the other slot normally with the same Wi-Fi and Home
+Assistant settings. Both slots' success records were read back. The original
+slot-local data remains in place. A USB recovery command
 can disable shared-data startup after a detected failure; that recovery path and
-data preservation across an actual A/B update have not yet been tested on a
+automatic rollback after a failed A/B update have not yet been tested on a
 device. Enabling shared data alone does not implement or enable OTA updates.
 For development images only, `CUBE_SHARED_DATA=1` opts into this migration;
 verify the resulting image with `--expect-shared-data`. Use a diagnostic built
