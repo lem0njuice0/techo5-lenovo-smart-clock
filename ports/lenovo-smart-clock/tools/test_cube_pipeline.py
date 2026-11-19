@@ -35,6 +35,64 @@ def stock_gpt_fixture():
 
 
 class PipelineTests(unittest.TestCase):
+    def test_device_wait_ignores_other_serials_and_times_out(self):
+        with mock.patch.object(pipeline, 'fastboot_devices', return_value={'other'}), \
+             mock.patch.object(pipeline.time, 'monotonic', side_effect=[0, 0, 2]), \
+             mock.patch.object(pipeline.time, 'sleep'):
+            with self.assertRaises(TimeoutError):
+                pipeline.wait_fastboot('clock', True, 1)
+
+    def test_guided_install_waits_for_same_device_and_checks_trial(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'bundle/rootfs').mkdir(parents=True)
+            (root / 'bundle/boot-a.img').write_bytes(b'boot')
+            (root / 'bundle/rootfs/system_b-experimental-DO-NOT-FLASH.img').write_bytes(b'system')
+            (root / 'bundle/root-report.json').write_bytes(b'report')
+            with mock.patch.object(pipeline, 'wait_fastboot') as wait, \
+                 mock.patch.object(pipeline.subprocess, 'run') as run, \
+                 mock.patch('builtins.input', side_effect=['yes', 'yes']):
+                pipeline.guided_install(root, 'a', 'clock', 60)
+            self.assertEqual([x.args[:2] for x in wait.call_args_list],
+                             [('clock', True), ('clock', False), ('clock', True)])
+            self.assertEqual([x.args[0][x.args[0].index('--action') + 1] for x in run.call_args_list[:3]],
+                             ['inspect', 'trial', 'install'])
+            self.assertIn('--trial-confirmed', run.call_args_list[2].args[0])
+            self.assertEqual(run.call_args_list[3].args[0], ['fastboot', '-s', 'clock', 'reboot'])
+
+    def test_guided_install_stops_if_trial_not_confirmed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'bundle/rootfs').mkdir(parents=True)
+            (root / 'bundle/boot-a.img').write_bytes(b'boot')
+            (root / 'bundle/rootfs/system_b-experimental-DO-NOT-FLASH.img').write_bytes(b'system')
+            (root / 'bundle/root-report.json').write_bytes(b'report')
+            with mock.patch.object(pipeline, 'wait_fastboot'), \
+                 mock.patch.object(pipeline.subprocess, 'run') as run, \
+                 mock.patch('builtins.input', side_effect=['yes', 'no']):
+                with self.assertRaisesRegex(ValueError, 'not confirmed'):
+                    pipeline.guided_install(root, 'a', 'clock', 60)
+            self.assertEqual(run.call_count, 2)
+
+    def test_guided_install_rejects_changed_bundle(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'bundle/rootfs').mkdir(parents=True)
+            boot = root / 'bundle/boot-a.img'
+            boot.write_bytes(b'boot')
+            (root / 'bundle/rootfs/system_b-experimental-DO-NOT-FLASH.img').write_bytes(b'system')
+            (root / 'bundle/root-report.json').write_bytes(b'report')
+            def answer(_):
+                if run.call_count == 2:
+                    boot.write_bytes(b'changed')
+                return 'yes'
+            with mock.patch.object(pipeline, 'wait_fastboot'), \
+                 mock.patch.object(pipeline.subprocess, 'run') as run, \
+                 mock.patch('builtins.input', side_effect=answer):
+                with self.assertRaisesRegex(ValueError, 'bundle changed'):
+                    pipeline.guided_install(root, 'a', 'clock', 60)
+            self.assertEqual(run.call_count, 2)
+
     def test_extracts_validated_gpt_image(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
