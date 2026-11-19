@@ -46,21 +46,21 @@ Linux 用の `cube_pipeline.py` は、所有者の純正イメージからの抽
 例えば、必要なツールを準備した Linux x86_64 環境で root として、各パスを実際のものに置き換えて実行します。
 
 ```sh
-python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build --work /private/cube-run --slot a --stock-image /private/full-user.img --source-slot a
+python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build-guided --work /private/cube-run --slot a --stock-image /private/full-user.img --source-slot a
 ```
 
 `--stock-image` の代わりに `--boot /private/boot.img --vendor /private/vendor.img --oem /private/oem.img` も指定できます。ディスク全体の raw イメージを渡した場合は、GPT の両コピーを検査してから必要な boot・vendor・OEM だけを非公開の作業フォルダーに取り出します。全体のバックアップは作成しません。対応するビルド済みカーネルを使う場合は `--kernel-out`、ダウンロード済みでハッシュが一致する Lenovo ソースを使う場合は `--lenovo-archive` を指定できます。
 
-ビルド後の操作を案内に沿って進める場合は、`build` を `build-guided` に変え、`--serial DEVICE_SERIAL` を追加します。ビルド済みの場合は `guided --work /private/cube-run --slot a --serial DEVICE_SERIAL` を使えます。指定したシリアルの fastboot 接続を待って事前検査し、試験書き込み前に確認します。試験起動後は fastboot に戻すよう案内され、同じシリアルが再び検出されると、イメージが変わっていないことを確認して boot を書き込み、再起動します。画面・タッチ・接続の動作は自動判定せず、確認結果の入力も求めません。したがって試験起動が機能したことは保証されません。待機時間は既定で 600 秒、`--wait-timeout` で変更できます。
+上記の `build-guided` が案内付きの標準手順です。ビルド済みの場合は `guided --work /private/cube-run --slot a` を使えます。fastboot 機器が１台なら自動検出し、複数ある場合は停止して `--serial DEVICE_SERIAL` の指定を求めます。事前検査と試験書き込み前の確認後、試験起動を行い、fastboot に戻すよう案内します。同じシリアルが再び検出されると、イメージが変わっていないことを確認して boot を書き込み、再起動します。画面・タッチ・接続は自動判定しないため、試験起動が機能したことは保証されません。待機時間は既定で 600 秒、`--wait-timeout` で変更できます。ビルドだけ行う場合は `build` を指定します。
 
 Windows の WSL 使用時は、時計が再接続されるたびに USB を WSL 側へ接続し直す必要がある場合があります。自動検出は WSL から見える fastboot 機器が対象です。この対話式の流れも、実機での通し試験はまだです。
 
-ビルド後、解除済みの時計を fastboot 接続し、同じ `--work` と `--slot` に `inspect --serial DEVICE_SERIAL` を付けて検査します。`trial --serial DEVICE_SERIAL` は**指定した非アクティブ側の system を上書き**して一時起動します。確認後に fastboot に戻し、同じイメージの試験が成功した場合のみ `install --serial DEVICE_SERIAL --trial-confirmed` で導入してください。再起動後の起動成功登録と完全復旧はまだ自動化されていません。
+個別に操作する場合は、同じ `--work` と `--slot` で `inspect`、`trial`、`install` を順に使えます。個別操作では `--serial` が必要です。`trial` は**指定した非アクティブ側の system を上書き**します。再起動後の起動成功登録と完全復旧は、案内付きの場合もまだ自動化されていません。
 
 Windows では、準備済みの Ubuntu WSL から PowerShell ラッパーを使えます。`-PipelineArgs` 内のパスは Windows パスではなく WSL のパスです。WSL の root で実行されるため、下記の Linux 用依存ツールを導入し、fastboot を使うときは usbipd-win などで時計の USB を WSL に接続してください。Windows での通し試験はまだです。
 
 ```powershell
-.\ports\lenovo-smart-clock\tools\cube_pipeline.ps1 -Distro Ubuntu -PipelineArgs @('build','--work','/home/user/cube-run','--slot','a','--stock-image','/mnt/d/private/full-user.img','--source-slot','a')
+.\ports\lenovo-smart-clock\tools\cube_pipeline.ps1 -Distro Ubuntu -PipelineArgs @('build-guided','--work','/home/user/cube-run','--slot','a','--stock-image','/mnt/d/private/full-user.img','--source-slot','a')
 ```
 
 ## 実験中：準備とビルドの自動化

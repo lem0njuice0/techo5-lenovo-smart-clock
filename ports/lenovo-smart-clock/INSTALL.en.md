@@ -46,21 +46,21 @@ In an interactive terminal, the script first asks for `1` (English) or `2` (Japa
 For example, on x86_64 Linux with the tools and WSL-compatible environment described below, as root, with paths replaced:
 
 ```sh
-python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build --work /private/cube-run --slot a --stock-image /private/full-user.img --source-slot a
+python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build-guided --work /private/cube-run --slot a --stock-image /private/full-user.img --source-slot a
 ```
 
 Instead of `--stock-image`, provide `--boot /private/boot.img --vendor /private/vendor.img --oem /private/oem.img`. The raw whole-disk path extracts only boot, vendor and OEM partitions to the private work directory after checking both GPT copies. It does not make a full backup. To skip rebuilding the kernel, provide `--kernel-out`; use `--lenovo-archive` for an already downloaded hash-matching source archive.
 
-For an interactive flow after building, replace `build` with `build-guided` and add `--serial DEVICE_SERIAL`. For an existing bundle, use `guided --work /private/cube-run --slot a --serial DEVICE_SERIAL`. It waits for the specified fastboot serial, runs preflight, and asks before the trial write. After the trial, it asks you to return to fastboot. When the same serial reappears, it checks that the bundle is unchanged, writes boot and reboots. It does not automatically test or ask whether display, touch or connectivity worked, so it does not establish that the trial was functional. The default wait is 600 seconds; use `--wait-timeout` to change it.
+The `build-guided` command above is the recommended guided flow. For an existing bundle, use `guided --work /private/cube-run --slot a`. It automatically selects a single fastboot device; if several are connected, it stops and requires `--serial DEVICE_SERIAL`. After preflight and confirmation before the trial write, it asks you to return to fastboot. When the same serial reappears, it checks that the bundle is unchanged, writes boot and reboots. It does not automatically test display, touch or connectivity, so it does not establish that the trial was functional. The default wait is 600 seconds; use `--wait-timeout` to change it. Use `build` for building only.
 
 On Windows with WSL, you may need to reattach USB to WSL each time the clock reconnects. Automatic detection sees only fastboot devices available inside WSL. The guided flow has not yet been tested end to end on hardware.
 
-After building, connect the unlocked clock in fastboot and use the same `--work` and `--slot` with `inspect --serial DEVICE_SERIAL`. `trial --serial DEVICE_SERIAL` **writes the selected inactive system partition** and boots temporarily. Check the trial, return to fastboot, and use `install --serial DEVICE_SERIAL --trial-confirmed` only after testing the same bundle. Reboot and check boot-success status separately; automatic success registration and complete recovery remain unfinished.
+For individual steps, use `inspect`, `trial` and `install` with the same `--work` and `--slot`. Individual actions require `--serial`. `trial` **overwrites the selected inactive system partition**. Automatic boot-success registration and complete recovery remain unfinished, including in guided mode.
 
 On Windows, run the PowerShell wrapper through a prepared Ubuntu WSL environment. All paths in `-PipelineArgs` are WSL paths, not Windows paths. The wrapper runs the pipeline as WSL root; install the documented Linux dependencies and attach the clock's fastboot USB device to WSL (for example, using usbipd-win) before fastboot actions. This wrapper and full workflow are experimental and have not been verified end to end on Windows.
 
 ```powershell
-.\ports\lenovo-smart-clock\tools\cube_pipeline.ps1 -Distro Ubuntu -PipelineArgs @('build','--work','/home/user/cube-run','--slot','a','--stock-image','/mnt/d/private/full-user.img','--source-slot','a')
+.\ports\lenovo-smart-clock\tools\cube_pipeline.ps1 -Distro Ubuntu -PipelineArgs @('build-guided','--work','/home/user/cube-run','--slot','a','--stock-image','/mnt/d/private/full-user.img','--source-slot','a')
 ```
 
 ## Experimental: automated preparation and build

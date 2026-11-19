@@ -35,6 +35,34 @@ def stock_gpt_fixture():
 
 
 class PipelineTests(unittest.TestCase):
+    def test_detects_only_one_fastboot_device(self):
+        with mock.patch.object(pipeline, 'fastboot_devices', side_effect=[set(), {'clock'}]), \
+             mock.patch.object(pipeline.time, 'sleep'):
+            self.assertEqual(pipeline.detect_one_fastboot(10), 'clock')
+
+    def test_detect_refuses_multiple_fastboot_devices(self):
+        with mock.patch.object(pipeline, 'fastboot_devices', return_value={'clock', 'other'}):
+            with self.assertRaisesRegex(ValueError, 'Multiple fastboot devices'):
+                pipeline.detect_one_fastboot(10)
+
+    def test_guided_uses_discovered_serial_for_trial_and_reboot(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'bundle/rootfs').mkdir(parents=True)
+            (root / 'bundle/boot-a.img').write_bytes(b'boot')
+            (root / 'bundle/rootfs/system_b-experimental-DO-NOT-FLASH.img').write_bytes(b'system')
+            (root / 'bundle/root-report.json').write_bytes(b'report')
+            with mock.patch.object(pipeline, 'detect_one_fastboot', return_value='clock'), \
+                 mock.patch.object(pipeline, 'wait_fastboot') as wait, \
+                 mock.patch.object(pipeline.subprocess, 'run') as run, \
+                 mock.patch('builtins.input', return_value='yes'):
+                pipeline.guided_install(root, 'a', None, 60)
+            self.assertEqual([call.args[:2] for call in wait.call_args_list], [('clock', False), ('clock', True)])
+            for call in run.call_args_list[:3]:
+                cmd = call.args[0]
+                self.assertEqual(cmd[cmd.index('--serial') + 1], 'clock')
+            self.assertEqual(run.call_args_list[3].args[0], ['fastboot', '-s', 'clock', 'reboot'])
+
     def test_language_selection_and_noninteractive_default(self):
         with mock.patch('builtins.input', return_value='2'):
             self.assertEqual(pipeline.choose_language([], True), 'ja')

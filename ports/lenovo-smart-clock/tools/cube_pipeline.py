@@ -80,6 +80,18 @@ def wait_fastboot(serial, present, timeout):
                                 ('指定した時計が fastboot に接続されませんでした。' if present else '指定した時計が fastboot を離れませんでした。') + '時間切れのため停止します。'))
 
 
+def detect_one_fastboot(timeout):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        devices = fastboot_devices()
+        if len(devices) > 1:
+            raise ValueError(localized('Multiple fastboot devices found; specify --serial.', 'fastboot 機器が複数見つかりました。--serial で対象を指定してください。'))
+        if devices:
+            return next(iter(devices))
+        time.sleep(2)
+    raise TimeoutError(localized('No fastboot device detected before timeout.', 'fastboot 機器が検出されないまま時間切れになりました。'))
+
+
 def bundle_hashes(work, slot):
     paths = (work / 'bundle' / ('boot-' + slot + '.img'),
              work / 'bundle/rootfs/system_b-experimental-DO-NOT-FLASH.img',
@@ -103,8 +115,13 @@ def guided_install(work, slot, serial, timeout):
         subprocess.run(cmd, check=True)
 
     print(message('fastboot'))
-    print(message('waiting'), serial, flush=True)
-    wait_fastboot(serial, True, timeout)
+    if serial:
+        print(message('waiting'), serial, flush=True)
+        wait_fastboot(serial, True, timeout)
+    else:
+        print(localized('Waiting for one fastboot device...', 'fastboot 機器を待っています...'), flush=True)
+        serial = detect_one_fastboot(timeout)
+        print(localized('Detected fastboot device:', '検出した fastboot 機器:'), serial, flush=True)
     install_action('inspect')
     hashes = bundle_hashes(work, slot)
     print(message('overwrite'), 'system_' + slot)
@@ -190,8 +207,6 @@ def main():
     work = a.work.resolve()
     if not 1 <= a.wait_timeout <= 3600:
         p.error(localized('--wait-timeout must be 1..3600 seconds', '--wait-timeout は 1〜3600 秒で指定してください'))
-    if a.action in ('guided', 'build-guided') and not a.serial:
-        p.error(localized('--serial is required for guided actions', '対話式操作には --serial が必要です'))
     if a.action == 'guided':
         guided_install(work, a.slot, a.serial, a.wait_timeout)
         return
