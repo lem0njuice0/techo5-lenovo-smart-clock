@@ -20,6 +20,8 @@
 
 ## アンロックと純正データ
 
+具体的な作業順序とコマンドは [純正データの取得とアンロック](STOCK-UNLOCK.ja.md) を参照してください。
+
 参考情報として、[XDA の Smart Clock ブートローダー／AVB 解除スレッド](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/)と、[初代機の解除に関する別の記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md)があります。XDA のページは本ガイド作成時に本文を取得できなかったため、現在の手順やファイルの内容・適合性は直接確認できていません。解除によりデータが初期化される場合があります。このツールは解除や解除用の認証情報の提供は行いません。
 
 純正 ROM 全体を正規に取得できる配布先は確認できていません。統合スクリプトには、所有者の eMMC ユーザー領域全体の raw イメージ、または端末から取得した boot・vendor・OEM の各イメージを渡せます。スクリプト自体は端末から読み出しません。[端末からの取得に関する参考資料](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md)には別途 BootROM を使う方法がありますが、本プロジェクトではすべてのファームウェア版で検証していません。抽出データには機器固有の情報が含まれ得るため、公開しないでください。

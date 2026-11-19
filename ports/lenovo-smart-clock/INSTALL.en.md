@@ -20,6 +20,8 @@ Display, touch, Wi-Fi, and other features were tested on two devices, but testin
 
 ## Unlocking and stock data
 
+See [obtaining stock data and unlocking](STOCK-UNLOCK.en.md) for the sequence and command examples.
+
 For background, see the [XDA Smart Clock bootloader / AVB unlock discussion](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/) and the [independent first-generation unlock notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md). The XDA page could not be retrieved when these instructions were written, so its current contents, files and suitability have not been independently verified. Unlocking can erase data; the tools here do not unlock a device or supply unlock credentials.
 
 No authorized download of the complete stock ROM has been established. The pipeline accepts either an owner's raw, complete eMMC user-area image with a valid GPT or separate boot, vendor and OEM images from their device. It does not read the device to acquire them. [Device extraction notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md) describe a separate BootROM method; it has not been validated by this project for all firmware versions. Extracted data may be device-specific and must be kept private.
