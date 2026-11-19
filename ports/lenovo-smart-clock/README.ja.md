@@ -20,28 +20,11 @@ Spotify Connect は実機再生未確認です。すべての機能の検証、�
 
 前提条件、コマンド例、試験起動と通常起動の違いは [詳しい導入手順](INSTALL.ja.md) を参照してください。
 
-現時点で、以下は**開発者向けの作業の流れ**です。必要な純正データの取得、カーネルを同じ条件で再ビルドする方法、アンロック、復旧を含む最初から最後までの手順は完成していません。この説明だけで誰でも安全にインストールできる状態ではありません。書き込みは選択したスロットの内容を上書きします。既存データや復旧方法を確認したうえで作業してください。
-
-1. 所有する対象機器の対応する純正ファームウェアを用意します。このリポジトリには純正イメージや抽出済みの独自データは含まれていません。取得方法や異なる純正バージョンへの適合は未整備です。
-2. Linux 環境で `tools/extract_stock_firmware.py` を使い、所有者が用意した raw ext4 の vendor パーティションまたは展開済みディレクトリから Wi-Fi／Bluetooth 用ファームウェアを抽出します。タッチ用ファームウェアはこのツールの抽出対象ではありません。
-3. `tools/extract_oem_apk.py` で所有者の OEM パーティションから APK を取り出し、`tools/extract_audio_apk.py` と JADX で 2019 年版の音声レジスタ設定を抽出します。抽出物と APK は公開されない作業場所に保管してください。
-4. Lenovo の 2019 年公開カーネルソース、外部パッチ、設定およびビルド環境を用意します。`tools/build_cube_kernel.sh` はパッチ適用済みソースを前提とします。パッチの取得・適用やゼロからの再現は未検証です。ルートファイルシステムの作成には、さらに Alpine パッケージやウェイクワードモデルなどが必要です。
-5. `tools/build-private-rootfs.sh` に必要な入力を指定して非公開の実験用イメージを作り、`tools/verify_private_rootfs.py` で検査します。検査の成功は実機起動や復旧の保証ではありません。オプションと入力の詳細は各スクリプトと英語版 README を確認してください。
-6. 対応するブートローダーの解除済み機器では `tools/install_cube_fastboot.py` が、指定した非アクティブスロットへの試験書き込みと一時起動、その確認後の boot 書き込みを支援します。このツールは設定の共有や自動更新を保証せず、初期状態からの汎用インストーラーでもありません。機器やスロット、イメージを誤ると起動できなくなる可能性があります。
+導入は案内付きスクリプトを使います。純正データの取得、解除、起動成功の登録と完全復旧はまだ自動化されていません。書き込みは指定したスロットの内容を上書きします。
 
 `tools/fix_cube_overlay_permissions.py` は、古い試作版で問題があったシステムファイルの所有者と権限を確認できます。`--apply` は実行中の対象ルートとスロットを確認したうえで修正しますが、もう一方のスロットや共有データには変更を加えません。`tools/update_daemon_ssh.py` は、SSH を設定済みの開発用端末でデーモンだけを手動更新するツールです。どちらも OTA や完全な復旧手段ではありません。
 
 実験的な共通データや更新機能は、対応する診断バイナリや明示的なビルド設定が必要です。`CUBE_SHARED_DATA=1` は共通データへの移行を有効にし、`CUBE_BLUETOOTH=1` は試験済みの Bluetooth ブリッジを有効にします。実験用署名付き更新には `CUBE_UPDATE_PUB` と `cube_update_trial` タグ付きの診断バイナリが必要で、`CUBE_UPDATE_WATCH=1` は起動時の監視を有効にします。これらだけで正式な更新配信は構成されません。署名ツール `tools/cube-update-sign` の鍵は Git 管理外で保管してください。故障を意図的に起こす試験設定は配布版に使わないでください。
-
-各抽出ツールの入力とオプションは、リポジトリのルートから例えば次のように確認できます。
-
-```sh
-python3 ports/lenovo-smart-clock/tools/extract_stock_firmware.py --help
-python3 ports/lenovo-smart-clock/tools/extract_oem_apk.py --help
-python3 ports/lenovo-smart-clock/tools/extract_audio_apk.py --help
-python3 ports/lenovo-smart-clock/tools/verify_private_rootfs.py --help
-python3 ports/lenovo-smart-clock/tools/install_cube_fastboot.py --help
-```
 
 ## ソースと再配布
 

@@ -1,215 +1,107 @@
-# 初代 Lenovo Smart Clock：実験版の導入手順
+# インストールガイド（実験版）
 
-[English](INSTALL.en.md) | **日本語** · [日本語の開発状況](README.ja.md)
+[English](INSTALL.en.md) | **日本語** · [動作状況](README.ja.md)
 
-このガイドでは、CD-24501F（`cube`、2019 年版）で実際に使った開発手順を紹介します。**一般向けの完成した手順ではありません。** 純正データの取得、ブートローダーの解除、カーネルの再ビルド、起動成功の登録、完全な復旧については、初期状態から作業できる手順がまだ整っていません。必要なファイルのうち、提供できないものは以下に記載しています。別の Lenovo Smart Clock や Echo には使用しないでください。
+対象は**初代 Lenovo Smart Clock CD-24501F、2019 年版**です。このガイドでは、自動化スクリプトを使う手順を最初から順に説明します。
 
-2 台で画面、タッチ、Wi-Fi などを検証しましたが、全機能・純正ファームウェアの全バージョン・復旧手段の検証は完了していません。試験用イメージの起動後も、データ保持や更新機能が自動的に有効になるわけではありません。
+> **まだ完成版ではありません。** 初期状態から最後まで通した実機テストは未完了です。純正データの取得とアンロックは手動で行う必要があり、インストール後の起動成功登録も自動化されていません。配布済みの完成イメージはありません。Echo 用のイメージやインストーラーは使わないでください。
 
-## 最初に：どこまでできる？
+## 全体の流れ
 
-| 工程 | 現在の状態 | 案内 |
+| 順番 | 作業 | 方法 |
 | --- | --- | --- |
-| 純正データを用意・機器を解除 | **未完成**：各自で用意・解除する必要あり | [1. 用意するもの](#1-用意するもの) |
-| 純正データから必要なファイルを抽出 | スクリプトあり | [2. 純正データから必要な入力を抽出する](#2-純正データから必要な入力を抽出する) |
-| カーネルとユーザー空間をビルド | カーネルのパッチ・設定の入手と再現は未完成 | [3. ビルド用入力を用意する](#3-ビルド用入力を用意する) |
-| イメージ作成・検査 | 準備済みの入力があれば実験用ツールを使用可能 | [4. ルートイメージとブートイメージを作成する](#4-ルートイメージとブートイメージを作成する) |
-| 試験起動・書き込み | 非アクティブ側の内容を上書き。成功登録の一般向け手順は未完成 | [5. fastboot での試験と導入](#5-fastboot-での試験と導入) |
+| 1 | 必要なものを用意する | このページ |
+| 2 | 純正データを取得し、時計を解除する | [純正データの取得とアンロック](STOCK-UNLOCK.ja.md) |
+| 3 | 現在のスロットを確認する | このページ |
+| 4 | スクリプトを起動する | このページ。以降は画面の案内に従います |
+| 5 | 起動成功の状態を確認する | このページ。自動登録は未完成です |
 
-**このガイドだけでは、初期状態の機器への導入を完了できません。** 必要なファイルや解除・復旧の手段を用意できない場合は、書き込みに進まず、手順が整うまでお待ちください。
+## 1. 必要なもの
 
-## アンロックと純正データ
+- CD-24501F、電源、PC に接続するデータ通信用 USB ケーブル。
+- 対応する 2019 年版の純正データ。**ユーザー領域全体の raw イメージ**か、同じ時計から取得した **boot・vendor・OEM の３つのパーティション**を用意します。入手先が不明な ROM を自動ダウンロードする機能はありません。
+- Linux x86_64 のビルド環境。Windows では Ubuntu の WSL を使います。純正データの読み出しや解除、fastboot 操作で使う USB は、それぞれ実行する環境から見える必要があります。WSL は機器の再接続後に USB の付け直しが必要な場合があります。
+- Linux 環境に root 権限、Python 3、Go、JADX、`fastboot`、`debugfs`、`mke2fs`、`git`、`tar`、`make`、`gcc`、`gzip`、`cpio`、`bc`、`bison`、`flex`、登録済みの `qemu-arm`。自動インストールする前に各自で用意してください。
+- 十分な空き容量。純正イメージのほか、約 0.9 GB のカーネルソース、展開先、コンパイラー、ビルド中のファイル、完成イメージが必要です。ビルド用フォルダーは大文字・小文字を区別する Linux ファイルシステム上の、空白を含まないパスにしてください。WSL の場合は仮想ディスクを保存するドライブの空きも必要です。
 
-具体的な作業順序とコマンドは [純正データの取得とアンロック](STOCK-UNLOCK.ja.md) を参照してください。
+## 2. 純正データの取得とアンロック
 
-参考情報として、[XDA の Smart Clock ブートローダー／AVB 解除スレッド](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/)と、[初代機の解除に関する別の記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md)があります。XDA のページは本ガイド作成時に本文を取得できなかったため、現在の手順やファイルの内容・適合性は直接確認できていません。解除によりデータが初期化される場合があります。このツールは解除や解除用の認証情報の提供は行いません。
+[純正データの取得とアンロック](STOCK-UNLOCK.ja.md)に従い、必要なデータを取得してから、ブートローダーと AVB を解除します。このスクリプトは**端末からの吸い出し、純正 ROM の取得、解除を自動では行いません**。解除ではデータが初期化される場合があります。純正データは機器固有の情報を含む可能性があるため、公開しないでください。
 
-純正 ROM 全体を正規に取得できる配布先は確認できていません。統合スクリプトには、所有者の eMMC ユーザー領域全体の raw イメージ、または端末から取得した boot・vendor・OEM の各イメージを渡せます。スクリプト自体は端末から読み出しません。[端末からの取得に関する参考資料](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md)には別途 BootROM を使う方法がありますが、本プロジェクトではすべてのファームウェア版で検証していません。抽出データには機器固有の情報が含まれ得るため、公開しないでください。
+## 3. 現在のスロットを調べる
 
-## 統合スクリプト（実験版）
-
-### fastboot モードにする方法
-
-1. 時計と PC をデータ通信できる USB ケーブルで接続します。
-2. USB はつないだまま、時計の電源を抜きます。
-3. 音量アップを押しながら電源を入れ、20〜30 秒押し続けます。
-4. 画面が暗いままでも、PC で `fastboot devices` を実行し、対象のシリアルが表示されるか確認します。Windows の WSL で実行する場合は、fastboot の USB 機器を WSL に接続してください。
-
-対話モードではこの手順が表示され、指定したシリアルが検出されるまで待ちます。検出しない場合はデータ対応ケーブル、ドライバー、WSL への USB 接続を確認してください。
-
-### 言語の選択
-
-対話式でスクリプトを起動すると、最初に `1`（英語）または `2`（日本語）を選べます。`--language en` または `--language ja` で選択を省略することもできます。対話できない環境では英語が既定です。コンパイラーやダウンロードツールなど、外部プログラムの出力は英語のままの場合があります。
-
-Linux 用の `cube_pipeline.py` は、所有者の純正イメージからの抽出、公開ファイルの取得、カーネルとイメージのビルド、fastboot の検査・試験起動・導入を一つの窓口から実行します。既存ツールを呼び出す方式で、**一連の作業の通し試験はまだ完了していません**。解除や起動成功の登録は行いません。以下の前提条件と制限も確認してください。
-
-例えば、必要なツールを準備した Linux x86_64 環境で root として、各パスを実際のものに置き換えて実行します。
+1. 時計と PC をデータ通信可能な USB ケーブルでつなぎます。
+2. USB はつないだまま時計の電源を抜きます。
+3. 音量アップを押しながら電源を入れ、20〜30 秒押し続けます。画面は暗いままの場合があります。
+4. スクリプトを実行する Linux／WSL 環境で次を実行します。複数の fastboot 機器がある場合は、対象を特定してから各コマンドに `-s DEVICE_SERIAL` を指定してください。
 
 ```sh
-python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build-guided --work /private/cube-run --slot a --stock-image /private/full-user.img --source-slot a
+fastboot devices
+fastboot getvar current-slot
+fastboot getvar unlocked
+fastboot getvar at-vboot-state
 ```
 
-`--stock-image` の代わりに `--boot /private/boot.img --vendor /private/vendor.img --oem /private/oem.img` も指定できます。ディスク全体の raw イメージを渡した場合は、GPT の両コピーを検査してから必要な boot・vendor・OEM だけを非公開の作業フォルダーに取り出します。全体のバックアップは作成しません。対応するビルド済みカーネルを使う場合は `--kernel-out`、ダウンロード済みでハッシュが一致する Lenovo ソースを使う場合は `--lenovo-archive` を指定できます。
+`unlocked: yes` と `avb-locked: 0` を確認します。対象となる書き込み先は、**現在起動中ではないスロット**です。例えば現在が B の場合は A を選びます。現在のスロットが A なら、以下の `--slot a` を `--slot b` に変更してください。間違ったスロットの指定や条件不一致は事前検査で停止します。
 
-上記の `build-guided` が案内付きの標準手順です。ビルド済みの場合は `guided --work /private/cube-run --slot a` を使えます。fastboot 機器が１台なら自動検出し、複数ある場合は停止して `--serial DEVICE_SERIAL` の指定を求めます。事前検査と試験書き込み前の確認後、試験起動を行い、fastboot に戻すよう案内します。同じシリアルが再び検出されると、イメージが変わっていないことを確認して boot を書き込み、再起動します。画面・タッチ・接続は自動判定しないため、試験起動が機能したことは保証されません。待機時間は既定で 600 秒、`--wait-timeout` で変更できます。ビルドだけ行う場合は `build` を指定します。
+<a id="統合スクリプト実験版"></a>
 
-Windows の WSL 使用時は、時計が再接続されるたびに USB を WSL 側へ接続し直す必要がある場合があります。自動検出は WSL から見える fastboot 機器が対象です。この対話式の流れも、実機での通し試験はまだです。
+## 4. 自動インストールを開始する
 
-個別に操作する場合は、同じ `--work` と `--slot` で `inspect`、`trial`、`install` を順に使えます。個別操作では `--serial` が必要です。`trial` は**指定した非アクティブ側の system を上書き**します。再起動後の起動成功登録と完全復旧は、案内付きの場合もまだ自動化されていません。
+まず PC にリポジトリを取得し、そのフォルダーへ移動します。Linux と Windows の PowerShell のどちらでも、Git を用意したうえで実行できます。
 
-Windows では、準備済みの Ubuntu WSL から PowerShell ラッパーを使えます。`-PipelineArgs` 内のパスは Windows パスではなく WSL のパスです。WSL の root で実行されるため、下記の Linux 用依存ツールを導入し、fastboot を使うときは usbipd-win などで時計の USB を WSL に接続してください。Windows での通し試験はまだです。
+```sh
+git clone https://github.com/lem0njuice0/techo5-lenovo-smart-clock.git
+cd techo5-lenovo-smart-clock
+```
+
+以下はこのフォルダーから実行します。例では、**現在のスロットが B、書き込み先が A** で、純正データの元も A です。パスとスロットは実際の状態に合わせて変更してください。`--work` はまだ存在しない非公開フォルダーを指定します。
+
+### Linux
+
+root として次を実行します。
+
+```sh
+sudo python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build-guided \
+  --work /private/cube-run --slot a \
+  --stock-image /private/full-user.img --source-slot a
+```
+
+純正データが３つのファイルに分かれている場合は、`--stock-image ... --source-slot a` の代わりに `--boot /private/boot.img --vendor /private/vendor.img --oem /private/oem.img` を指定します。
+
+### Windows（PowerShell + WSL）
+
+リポジトリのルートで PowerShell を開きます。次は WSL のディストリビューション名が `Ubuntu` の例です。**`-PipelineArgs` のパスは WSL のパス**です。`/mnt/d/...` は Windows の D ドライブを表します。
 
 ```powershell
 .\ports\lenovo-smart-clock\tools\cube_pipeline.ps1 -Distro Ubuntu -PipelineArgs @('build-guided','--work','/home/user/cube-run','--slot','a','--stock-image','/mnt/d/private/full-user.img','--source-slot','a')
 ```
 
-## 実験中：準備とビルドの自動化
+このラッパーは WSL の root で Linux 版を実行します。USB を WSL に接続する設定と、WSL 内の依存ツールが必要です。Windows を含む新規環境での通し試験はまだ完了していません。
 
-### 共通テンプレートから組み立てる方式
+### 起動後の流れ
 
-本家に近い方式として、純正ファームウェア・音声設定・カーネルモジュールを含まない共通 rootfs テンプレートを作り、所有者のデータと対応するカーネルから作ったモジュールを後で組み込む実験を進めています。テンプレートはそのままでは書き込めません。配布する前に依存ソフトのライセンス・ソース提供条件と実機動作を確認する必要があり、**現在は配布用テンプレートやビルド済み部品を公開していません**。
+1. スクリプトの言語を選びます。対話できない環境では英語が既定です。`--language ja` または `--language en` で指定もできます。外部ツールのログは英語の場合があります。
+2. 純正データを抽出し、公開されている必要ファイルを取得・検証して、カーネルとイメージをビルドします。この段階では時計に書き込みません。
+3. fastboot 機器が１台なら自動検出して事前検査を行います。複数見つかった場合は停止するので、`--serial DEVICE_SERIAL` を指定して再実行してください。
+4. 確認後、**指定した非アクティブ側の system を上書き**して試験起動します。画面・タッチ・接続の確認は求めません。
+5. 「fastboot に戻してください」と表示されたら、手順 3 と同じ操作で戻します。同じ時計が再検出されると、イメージを確認し、boot を書き込んで再起動します。待ち時間は既定で 600 秒です。
 
-信頼できるテンプレートと、その配布元が示す SHA-256、対応するビルド済み部品を自分で用意した開発者は、統合スクリプトの `build` または `build-guided` に `--template /private/cube-template.img --template-sha256 EXPECTED_SHA256 --prebuilt-dir /private/prebuilt` を追加できます。テンプレートに含まれない純正データと一致するカーネルのモジュールが必要です。ファイルのハッシュ照合は配布元の本人確認ではありません。テンプレートを使う経路は実機で通して試していません。
+この流れでは、試験起動中の機能が正常に動いたかは判定しません。ビルド済みの作業フォルダーから導入を再開する場合は、`build-guided` の代わりに `guided` を使い、`--work` と `--slot` を指定します。
 
-`prepare_cube_inputs.py` は公開元から TECHO5 の補助プログラム・ウェイクワードモデルと Alpine の必要ファイルを取得し、固定された SHA-256 を検証します。`build_cube_bundle.py` は、所有者の純正データを使い、Lenovo の 2019 年版カーネルソース・参照パッチ・固定バージョンのコンパイラーを取得して、カーネルのビルドからイメージの構築・検証までつなぎます。純正 ROM 全体は取得しません。新しい手順をクリーンな環境と初期状態の実機で通して試す検証は**まだ完了していません**。
+## 5. 起動後の状態
 
-Linux x86_64 の専用ビルド環境で、以下のパスを実際のものに置き換えてください。root、Go、JADX、`debugfs`、`mke2fs`、登録済みの `qemu-arm`、Git、tar、make、GCC、gzip、cpio、bc、bison、flex と十分な空き容量が必要です。約 0.9 GB のソースアーカイブに加えて、展開後のソース、コンパイラー、中間ファイル、イメージを保存できる大文字・小文字を区別する Linux ファイルシステムを使ってください。WSL では仮想ディスクを置いたドライブにも空きが必要です。`--work` は存在しない、空白を含まないパスを指定してください。
+スクリプトはまだスロットの**起動成功を自動登録しません**。登録されないまま再起動を繰り返すと、試行回数の条件によって前のスロットに戻ることがあります。安全な登録・完全復旧の一般向け手順は未完成です。設定共有や正式な OTA 更新も、この手順だけで有効になるわけではありません。
 
-```sh
-sudo python3 ports/lenovo-smart-clock/tools/build_cube_bundle.py \
-  --vendor /private/source/vendor.img --oem /private/source/oem.img \
-  --donor-boot /private/source/boot.img \
-  --slot a --work /private/cube-build
-```
+<a id="共通テンプレートから組み立てる方式"></a>
 
-設定が内蔵された、対応する 2019 年版の純正 boot が必要です。対応するビルド済みカーネルを使う場合は `--kernel-out`、事前に取得したハッシュ一致の Lenovo ソースを使う場合は `--lenovo-archive` を指定できます。純正 ROM や機器固有データはダウンロードしません。出力されるイメージは非公開の実験版で、この段階では時計に書き込みません。対応する機器を fastboot に接続後、まず `--action inspect` で検査できます。`a` は実際に書き込む非アクティブ側に合わせてください。
+## 参考：共通テンプレートから組み立てる方式
 
-`--prebuilt-dir` に 4 個の cube 用ビルド済み実行ファイルと `SHA256.json` が入ったディレクトリを指定すると、Go による実行ファイルのビルドを省略できます。現時点ではこのプロジェクトから一般向けパッケージを配布しておらず、利用条件と実機での確認が必要です。ハッシュと CPU アーキテクチャの検証は、配布元の信頼性や動作を保証するものではありません。純正データとカーネルも別途必要です。
+純正ファームウェア・音声設定・カーネルモジュールを含まない共通 rootfs を、所有者のデータと後から組み合わせる方式を開発中です。実サイズの組み立てイメージはオフライン検査を通りましたが、実機起動と配布条件の確認は未完了です。**現在、配布用テンプレートやビルド済み部品は公開していません。**
 
-```sh
-python3 ports/lenovo-smart-clock/tools/cube_install.py --work /private/cube-build --serial YOUR_SERIAL --slot a --action inspect
-```
+## 困ったとき
 
-同じ引数で `--action trial` を指定すると、**非アクティブ側の system を上書き**して一時起動します。画面・接続・復旧経路を確認した後、再び fastboot に戻し、同じ引数で `--action install --trial-confirmed` を指定すると boot の書き込みとスロット切り替えを行います。実際に同じイメージを試したことは利用者が確認する必要があります。ツールは解除や起動成功の登録を行わず、設定保持・自動更新も有効にしません。詳しい条件は[手順 5](#5-fastboot-での試験と導入)を参照してください。
-
-公開ファイルだけを先に取得したい場合は `python3 ports/lenovo-smart-clock/tools/prepare_cube_inputs.py --output /private/cube-inputs` を使えます。出力先は新しいディレクトリにしてください。
-
-## 1. 用意するもの
-
-- 対象機器、電源、データ通信に対応した USB ケーブル、Python 3、Android platform-tools の `fastboot`。Linux でイメージを作る場合は root 権限、`debugfs`、`mke2fs`、`qemu-arm` の binfmt 登録と Alpine のビルドに必要なツールも必要です。APK の音声設定抽出には JADX が必要です。
-- 所有者が用意した対象機器の純正 `vendor`、`oem` の raw ext4 イメージまたは展開済みディレクトリ、および対象機器に対応する純正 boot イメージ。取得や復元の一般向け手順はまだありません。重要なデータと復旧方法は事前に確認してください。
-- ブートローダーと AVB が解除済みの機器。解除方法や必要な資格情報はこのリポジトリでは提供していません。解除で初期化される場合があります。
-- 以下の手動手順では、Lenovo の 2019 年公開カーネルソースにパッチを適用したもの、対応する純正設定、ARM64 クロスコンパイラが必要です。上記の実験的な自動化ではソース・パッチ・コンパイラーを取得し、純正 boot から設定を抽出しますが、通し試験はまだです。
-- ルートファイルシステム用の Alpine `apk.static`、`alpine-minirootfs-3.24.2-armv7.tar.gz`、ウェイクワードモデル（`.tflite` と `.json`）。`ports/lenovo-smart-clock/inputs/`、または `CUBE_INPUTS` で指定したディレクトリに置きます。これらは自動収集されません。
-
-以下のコマンドは Linux シェルで、リポジトリのルートにいる前提です。`/private/cube` と各入力パスは例です。機器のバックアップや抽出物を Git 管理対象に入れず、それぞれアクセス権を制限した場所に保管してください。書き込み先の新規ディレクトリは各ツールが作成します。
-
-## 2. 純正データから必要な入力を抽出する
-
-まず次の変数を実際のファイルに合わせて指定します。元のファイルは編集しません。raw ext4 イメージに Android sparse 形式などをそのまま渡すことはできません。
-
-```sh
-PORT=ports/lenovo-smart-clock
-PRIVATE=/private/cube
-VENDOR_IMG=/private/source/vendor.img
-OEM_IMG=/private/source/oem.img
-mkdir -p "$PRIVATE"
-python3 "$PORT/tools/extract_stock_firmware.py" "$VENDOR_IMG" "$PRIVATE/firmware"
-python3 "$PORT/tools/extract_oem_apk.py" "$OEM_IMG" "$PRIVATE/oem-apk"
-```
-
-`firmware` には Wi-Fi／Bluetooth 関連ファイルとハッシュを記録した `manifest.json` ができます。タッチ用ファームウェアは抽出されません。次に `oem-apk` に出力された APK の実際の名前を確認し、以下の `OEM_APK` をそのファイルに置き換えます。異なる純正バージョンでは必要なファイルや構造が一致しないことがあります。
-
-```sh
-OEM_APK=/private/cube/oem-apk/実際のAPKファイル名.apk
-python3 "$PORT/tools/extract_audio_apk.py" "$OEM_APK" "$PRIVATE/audio"
-```
-
-音声設定は JADX で 2019 年版 APK の `Lenovo.java` を解析して作ります。失敗した場合は別機種や別バージョンのデータを無理に流用しないでください。詳細はそれぞれ `--help` で確認できます。
-
-## 3. ビルド用入力を用意する
-
-Windows の PowerShell と Go がある場合、`ports/lenovo-smart-clock/tools/build-cube-userspace.ps1` は実験用デーモン、Bluetooth ブリッジ、診断用バイナリ、カーネル内 init をビルドします。標準の診断バイナリに実験的 OTA 機能は含まれません。
-
-Linux では同等のビルド例は次のとおりです。Go のバージョンなど各モジュールの要求を満たす必要があります。
-
-```sh
-mkdir -p bin "$PORT/build"
-CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go -C echod build -tags cube -o "$(pwd)/bin/echod-cube-arm" ./cmd/echod
-CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go build -o bin/btbridge-cube-arm ./cmd/btbridge
-CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=7 go -C "$PORT/serial" build -tags cube_slot,cube_shared -o "$(pwd)/$PORT/build/cube-serial-arm" .
-CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go -C "$PORT/rescue" build -tags cube_boot -o "$(pwd)/$PORT/build/cube-boot-init-aarch64" .
-```
-
-パッチ適用済みのカーネルソースと実機に対応する設定が用意できた場合に限り、次のようにビルドを開始できます。`CUBE_KERNEL_BUILD` は存在しないパスを指定し、すべて実環境の絶対パスに置き換えます。パスに空白は使えません。
-
-```sh
-export CUBE_KERNEL_SRC=/private/source/patched-kernel
-export CUBE_STOCK_CONFIG=/private/source/stock.config
-export CUBE_RUNTIME_INIT="$(pwd)/$PORT/build/cube-boot-init-aarch64"
-export CUBE_KERNEL_BUILD="$PRIVATE/kernel-build"
-export CROSS_COMPILE=aarch64-linux-gnu-
-bash "$PORT/tools/build_cube_kernel.sh"
-export CUBE_KERNEL_OUT="$CUBE_KERNEL_BUILD/out"
-```
-
-このスクリプトはソースへのパッチ適用を行いません。公開版のツールだけからカーネルが再現できることもまだ確認できていません。
-
-## 4. ルートイメージとブートイメージを作成する
-
-必要な Alpine のファイルなどを `CUBE_INPUTS` に揃え、出力先にはまだ存在しないディレクトリを指定します。`CUBE_TEST_AUDIO=1` は 2019 年版の音声初期化を有効にする実験用設定です。別途用意する受信機用のプログラムがなければ、AirPlay などの機能は利用できません。
-
-```sh
-export CUBE_FIRMWARE="$PRIVATE/firmware"
-export CUBE_AUDIO="$PRIVATE/audio"
-export CUBE_INPUTS=/private/cube-inputs
-export CUBE_OUTPUT="$PRIVATE/rootfs-output"
-export CUBE_TEST_AUDIO=1
-export CUBE_BLUETOOTH=1
-sudo --preserve-env=CUBE_FIRMWARE,CUBE_AUDIO,CUBE_INPUTS,CUBE_OUTPUT,CUBE_KERNEL_OUT,CUBE_TEST_AUDIO,CUBE_BLUETOOTH bash "$PORT/tools/build-private-rootfs.sh"
-```
-
-出力される `system_b-experimental-DO-NOT-FLASH.img` は非公開の実験用イメージです。ファイル名だけでスロットとの互換性や安全性は判断できません。既定では設定の共有や OTA は有効になりません。日本語フォント取得や追加ヘルパーの条件は英語版 README を参照してください。
-
-次は、対応する純正 donor boot、ビルドしたカーネルと DTB を入力に、**A を対象とする場合の例**です。B が正常な現在のスロットである場合だけ、この A の例が当てはまります。B 用は `--experimental-system-b` と `--expect-system-b` を使用し、ほかの手順でも対象を B に合わせます。
-
-```sh
-DONOR_BOOT=/private/source/boot.img
-KERNEL_GZ="$CUBE_KERNEL_OUT/arch/arm64/boot/Image.gz"
-DTB="$CUBE_KERNEL_OUT/arch/arm64/boot/dts/mediatek/mt8167s_ref.dtb"
-BOOT="$PRIVATE/boot-a.img"
-python3 "$PORT/tools/make_diagnostic_boot.py" --experimental-system-a "$DONOR_BOOT" "$KERNEL_GZ" "$DTB" "$BOOT"
-python3 "$PORT/tools/verify_diagnostic_boot.py" --expect-system-a "$DONOR_BOOT" "$BOOT" "$KERNEL_GZ" "$DTB"
-SYSTEM="$CUBE_OUTPUT/system_b-experimental-DO-NOT-FLASH.img"
-python3 "$PORT/tools/verify_private_rootfs.py" --serial "$PORT/build/cube-serial-arm" --expect-test-audio --expect-test-bluetooth --expect-japanese-font --audio "$CUBE_AUDIO" "$SYSTEM" bin/echod-cube-arm "$CUBE_FIRMWARE" > "$PRIVATE/root-report.json"
-```
-
-すべての検査が成功しても実機での起動・復旧は保証されません。作成するイメージには独自の純正由来データが含まれます。再配布条件を確認せずに公開しないでください。
-
-## 5. fastboot での試験と導入
-
-この節はスクリプトの使い方を示す開発者向け例です。試験では**選択した非アクティブ側の `system` が実際に上書きされます**。そのスロットの純正システムを残したい場合は実行できません。使用する PC と機器で復旧経路が確立していることを確認してください。
-
-機器の電源を抜き、USB を接続した状態で音量アップを押しながら電源を入れ、fastboot で認識されることを確認します。`SERIAL` は `fastboot devices` に表示された対象機器の値に、`BOOT_SHA256` は検証した boot の SHA-256 に置き換えます。別の機器のシリアルを指定しないでください。
-
-```sh
-fastboot devices
-SERIAL=表示された対象機器のシリアル
-fastboot -s "$SERIAL" getvar current-slot
-fastboot -s "$SERIAL" getvar unlocked
-fastboot -s "$SERIAL" getvar at-vboot-state
-BOOT_SHA256=$(sha256sum "$BOOT" | cut -d ' ' -f 1)
-python3 "$PORT/tools/install_cube_fastboot.py" --serial "$SERIAL" --slot a --boot "$BOOT" --boot-sha256 "$BOOT_SHA256" --system "$SYSTEM" --root-report "$PRIVATE/root-report.json" --action inspect
-```
-
-`inspect` はファイルと接続状態を検査します。A の例では現在 B が成功済みかつ起動可能で、A が非アクティブ、boot と rootfs が対象パーティションに適合し、ブートローダーと AVB が解除されている必要があります。エラーが出た場合、条件を無理に回避しないでください。
-
-### 試験起動：A の system を上書きする
-
-検査が通り、対象の A を上書きすることを理解している場合、上記コマンドの最後を `--action trial` に変えます。`system_a` を書き込み、その boot イメージを一時起動します。画面・タッチ・Wi-Fi・音声と必要な復旧経路を確認してください。試験起動の root と、ブートローダーが記録する現在のスロットは異なることがあります。
-
-### 通常起動：A の boot を書き込み A を選ぶ
-
-同じイメージ・同じ機器で試験に成功したら、fastboot に戻し、同じコマンドの最後を `--action install --trial-confirmed` に変えます。`boot_a` を書き込み A を選択します。その後 `fastboot -s "$SERIAL" reboot` で通常起動し、もう一度各機能を確認します。
-
-**この操作だけでは A を起動成功として登録しません。** 成功登録前は試行回数が減り、条件によって元のスロットに戻ります。安全な成功登録・ロールバック・共通データ領域の移行を含む一般向け手順は未完成です。両スロット間での設定保持や自動更新も、この手順だけでは有効になりません。
+- **fastboot に表示されない**：データ通信可能なケーブル、ドライバー、電源投入時の操作を確認します。WSL の場合は USB の接続先も確認します。
+- **複数の端末が見つかった**：`--serial DEVICE_SERIAL` で対象を指定します。
+- **純正ファイルがない／解除できない**：書き込みには進めません。[取得とアンロックの案内](STOCK-UNLOCK.ja.md)を確認してください。
+- **ビルドや起動で失敗した**：表示されたエラーと、どの段階で止まったかを記録してください。秘密鍵、認証情報、Wi-Fi パスワード、純正イメージは公開しないでください。
