@@ -17,10 +17,12 @@ def main():
     p.add_argument('--serial', required=True, help='exact fastboot device serial')
     p.add_argument('--slot', choices=('a', 'b'), required=True, help='inactive target slot')
     p.add_argument('--action', choices=('inspect', 'trial', 'install'), default='inspect')
-    p.add_argument('--trial-confirmed', action='store_true', help='confirm that this exact image passed a device trial')
+    trial = p.add_mutually_exclusive_group()
+    trial.add_argument('--trial-confirmed', action='store_true', help='confirm that this exact image passed a device trial')
+    trial.add_argument('--trial-unverified', action='store_true', help='proceed after an unverified trial')
     a = p.parse_args()
-    if a.action == 'install' and not a.trial_confirmed:
-        p.error('install requires --trial-confirmed after testing the exact image')
+    if a.action == 'install' and not (a.trial_confirmed or a.trial_unverified):
+        p.error('install requires --trial-confirmed or --trial-unverified')
     work = a.work.resolve(strict=True)
     boot = work / ('boot-' + a.slot + '.img')
     system = work / 'rootfs/system_b-experimental-DO-NOT-FLASH.img'
@@ -34,6 +36,8 @@ def main():
            '--system', str(system), '--root-report', str(report), '--action', a.action]
     if a.trial_confirmed:
         cmd.append('--trial-confirmed')
+    if a.trial_unverified:
+        cmd.append('--trial-unverified')
     if a.action == 'trial':
         print('WARNING: this writes the inactive system partition before temporary boot.', flush=True)
     elif a.action == 'install':

@@ -50,11 +50,11 @@ def bundle_hashes(work, slot):
 
 
 def guided_install(work, slot, serial, timeout):
-    def install_action(action, confirmed=False):
+    def install_action(action, unverified=False):
         cmd = [sys.executable, str(TOOLS / 'cube_install.py'), '--work', str(work / 'bundle'),
                '--slot', slot, '--serial', serial, '--action', action]
-        if confirmed:
-            cmd.append('--trial-confirmed')
+        if unverified:
+            cmd.append('--trial-unverified')
         subprocess.run(cmd, check=True)
 
     print('Connect the clock in fastboot (hold Volume Up while powering on).')
@@ -69,16 +69,14 @@ def guided_install(work, slot, serial, timeout):
     install_action('trial')
     print('Waiting for the device to leave fastboot / 時計が fastboot を離れるのを待っています...', flush=True)
     wait_fastboot(serial, False, timeout)
-    print('Check display, touch, Wi-Fi and recovery on the temporary boot.')
-    if input('Did the trial work? / 試験起動で画面・タッチ・接続は動きましたか？ [yes/no]: ').strip().lower() != 'yes':
-        raise ValueError('trial was not confirmed; no boot partition was written')
     print('Return the same clock to fastboot: disconnect power, hold Volume Up, reconnect power.')
     print('同じ時計の電源を抜き、音量アップを押しながら電源を入れて fastboot に戻してください。', flush=True)
     wait_fastboot(serial, True, timeout)
     if hashes != bundle_hashes(work, slot):
         raise ValueError('bundle changed after the trial; refusing to install')
     print('Selected clock detected / 指定した時計を検出しました。')
-    install_action('install', confirmed=True)
+    print('Trial features were not verified / 試験起動の機能確認は行っていません。')
+    install_action('install', unverified=True)
     subprocess.run(['fastboot', '-s', serial, 'reboot'], check=True, timeout=30)
     print('Reboot requested. Boot success is not marked automatically.')
     print('再起動を開始しました。起動成功の登録は別途必要です。')
@@ -185,7 +183,7 @@ def main():
     if a.action == 'build-guided':
         guided_install(work, a.slot, a.serial, a.wait_timeout)
     if a.action == 'trial':
-        print('Check display, touch, Wi-Fi and recovery; return to fastboot before install.')
+        print('Return the same clock to fastboot before install.')
     if a.action == 'install':
         print('Boot success is not automatically marked; see the installation guide.')
 

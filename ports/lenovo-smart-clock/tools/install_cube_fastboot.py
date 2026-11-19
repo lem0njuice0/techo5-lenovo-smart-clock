@@ -50,10 +50,12 @@ def main():
     p.add_argument("--system", type=Path, required=True)
     p.add_argument("--root-report", type=Path, required=True, help="JSON from verify_private_rootfs.py")
     p.add_argument("--action", choices=("inspect", "trial", "install"), default="inspect")
-    p.add_argument("--trial-confirmed", action="store_true", help="confirm this exact system slot trial was tested")
+    trial = p.add_mutually_exclusive_group()
+    trial.add_argument("--trial-confirmed", action="store_true", help="confirm this exact system slot trial was tested")
+    trial.add_argument("--trial-unverified", action="store_true", help="proceed after a trial without asserting that device features worked")
     a = p.parse_args()
-    if a.action == "install" and not a.trial_confirmed:
-        p.error("install requires --trial-confirmed after the same system slot trial has been checked")
+    if a.action == "install" and not (a.trial_confirmed or a.trial_unverified):
+        p.error("install requires --trial-confirmed or an explicit --trial-unverified")
     if not re.fullmatch(r"[A-Za-z0-9._-]+", a.serial) or not re.fullmatch(r"[a-fA-F0-9]{64}", a.boot_sha256):
         p.error("invalid serial or boot SHA-256")
     if sha256(a.boot) != a.boot_sha256.lower():
@@ -93,7 +95,7 @@ def main():
         call(a.serial, "flash", "system_" + a.slot, str(a.system))
         print("Wrote the selected system slot; starting the temporary boot image.", flush=True)
         call(a.serial, "boot", str(a.boot))
-        print("Trial requested. Check screen, touch, network and recovery before installing boot_" + a.slot + ".")
+        print("Trial requested. Return the device to fastboot before installing boot_" + a.slot + ".")
     elif a.action == "install":
         call(a.serial, "flash", "boot_" + a.slot, str(a.boot))
         call(a.serial, "set_active", a.slot)

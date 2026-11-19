@@ -38,7 +38,7 @@ python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build --work /private/cu
 
 `--stock-image` の代わりに `--boot /private/boot.img --vendor /private/vendor.img --oem /private/oem.img` も指定できます。ディスク全体の raw イメージを渡した場合は、GPT の両コピーを検査してから必要な boot・vendor・OEM だけを非公開の作業フォルダーに取り出します。全体のバックアップは作成しません。対応するビルド済みカーネルを使う場合は `--kernel-out`、ダウンロード済みでハッシュが一致する Lenovo ソースを使う場合は `--lenovo-archive` を指定できます。
 
-ビルド後の操作を案内に沿って進める場合は、`build` を `build-guided` に変え、`--serial DEVICE_SERIAL` を追加します。ビルド済みの場合は `guided --work /private/cube-run --slot a --serial DEVICE_SERIAL` を使えます。指定したシリアルの fastboot 接続を待って事前検査し、試験書き込み前に確認します。試験起動後は画面・接続などの確認結果を入力し、fastboot に戻すよう案内されます。同じシリアルが再び検出されると、イメージが変わっていないことを確認して boot を書き込み、再起動します。待機時間は既定で 600 秒、`--wait-timeout` で変更できます。
+ビルド後の操作を案内に沿って進める場合は、`build` を `build-guided` に変え、`--serial DEVICE_SERIAL` を追加します。ビルド済みの場合は `guided --work /private/cube-run --slot a --serial DEVICE_SERIAL` を使えます。指定したシリアルの fastboot 接続を待って事前検査し、試験書き込み前に確認します。試験起動後は fastboot に戻すよう案内され、同じシリアルが再び検出されると、イメージが変わっていないことを確認して boot を書き込み、再起動します。画面・タッチ・接続の動作は自動判定せず、確認結果の入力も求めません。したがって試験起動が機能したことは保証されません。待機時間は既定で 600 秒、`--wait-timeout` で変更できます。
 
 Windows の WSL 使用時は、時計が再接続されるたびに USB を WSL 側へ接続し直す必要がある場合があります。自動検出は WSL から見える fastboot 機器が対象です。この対話式の流れも、実機での通し試験はまだです。
 

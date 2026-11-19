@@ -42,7 +42,7 @@ class PipelineTests(unittest.TestCase):
             with self.assertRaises(TimeoutError):
                 pipeline.wait_fastboot('clock', True, 1)
 
-    def test_guided_install_waits_for_same_device_and_checks_trial(self):
+    def test_guided_install_waits_for_same_device_without_claiming_trial_verified(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'bundle/rootfs').mkdir(parents=True)
@@ -51,16 +51,18 @@ class PipelineTests(unittest.TestCase):
             (root / 'bundle/root-report.json').write_bytes(b'report')
             with mock.patch.object(pipeline, 'wait_fastboot') as wait, \
                  mock.patch.object(pipeline.subprocess, 'run') as run, \
-                 mock.patch('builtins.input', side_effect=['yes', 'yes']):
+                 mock.patch('builtins.input', return_value='yes') as prompt:
                 pipeline.guided_install(root, 'a', 'clock', 60)
             self.assertEqual([x.args[:2] for x in wait.call_args_list],
                              [('clock', True), ('clock', False), ('clock', True)])
             self.assertEqual([x.args[0][x.args[0].index('--action') + 1] for x in run.call_args_list[:3]],
                              ['inspect', 'trial', 'install'])
-            self.assertIn('--trial-confirmed', run.call_args_list[2].args[0])
+            self.assertIn('--trial-unverified', run.call_args_list[2].args[0])
+            self.assertNotIn('--trial-confirmed', run.call_args_list[2].args[0])
+            self.assertEqual(prompt.call_count, 1)
             self.assertEqual(run.call_args_list[3].args[0], ['fastboot', '-s', 'clock', 'reboot'])
 
-    def test_guided_install_stops_if_trial_not_confirmed(self):
+    def test_guided_install_stops_if_trial_write_cancelled(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / 'bundle/rootfs').mkdir(parents=True)
@@ -69,10 +71,10 @@ class PipelineTests(unittest.TestCase):
             (root / 'bundle/root-report.json').write_bytes(b'report')
             with mock.patch.object(pipeline, 'wait_fastboot'), \
                  mock.patch.object(pipeline.subprocess, 'run') as run, \
-                 mock.patch('builtins.input', side_effect=['yes', 'no']):
-                with self.assertRaisesRegex(ValueError, 'not confirmed'):
+                 mock.patch('builtins.input', return_value='no'):
+                with self.assertRaisesRegex(ValueError, 'trial cancelled'):
                     pipeline.guided_install(root, 'a', 'clock', 60)
-            self.assertEqual(run.call_count, 2)
+            self.assertEqual(run.call_count, 1)
 
     def test_guided_install_rejects_changed_bundle(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -82,13 +84,12 @@ class PipelineTests(unittest.TestCase):
             boot.write_bytes(b'boot')
             (root / 'bundle/rootfs/system_b-experimental-DO-NOT-FLASH.img').write_bytes(b'system')
             (root / 'bundle/root-report.json').write_bytes(b'report')
-            def answer(_):
-                if run.call_count == 2:
+            def wait(_serial, present, _timeout):
+                if present and run.call_count == 2:
                     boot.write_bytes(b'changed')
-                return 'yes'
-            with mock.patch.object(pipeline, 'wait_fastboot'), \
+            with mock.patch.object(pipeline, 'wait_fastboot', side_effect=wait), \
                  mock.patch.object(pipeline.subprocess, 'run') as run, \
-                 mock.patch('builtins.input', side_effect=answer):
+                 mock.patch('builtins.input', return_value='yes'):
                 with self.assertRaisesRegex(ValueError, 'bundle changed'):
                     pipeline.guided_install(root, 'a', 'clock', 60)
             self.assertEqual(run.call_count, 2)

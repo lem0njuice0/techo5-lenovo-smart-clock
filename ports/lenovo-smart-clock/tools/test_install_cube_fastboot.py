@@ -53,6 +53,18 @@ class InstallerTest(unittest.TestCase):
             self.run_installer(["--action", "trial"], calls)
         self.assertEqual(calls, [])
 
+    def test_install_requires_explicit_trial_state(self):
+        calls = []
+        with self.assertRaises(SystemExit):
+            self.run_installer(['--action', 'install'], calls)
+        self.assertEqual(calls, [])
+
+    def test_install_accepts_explicitly_unverified_trial(self):
+        calls = []
+        self.run_installer(['--action', 'install', '--trial-unverified'], calls)
+        self.assertTrue(any(c[:2] == ('flash', 'boot_a') for c in calls))
+        self.assertTrue(any(c[:2] == ('set_active', 'a') for c in calls))
+
 
 if __name__ == "__main__":
     unittest.main()
