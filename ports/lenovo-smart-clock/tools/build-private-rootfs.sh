@@ -11,9 +11,16 @@ helpers=${CUBE_HELPERS:-$repo/bin}
 daemon=${CUBE_DAEMON:-$repo/bin/echod-cube-arm}
 btbridge=${CUBE_BTBRIDGE:-$repo/bin/btbridge-cube-arm}
 export CUBE_PORT="$port"
-export CUBE_FIRMWARE=${CUBE_FIRMWARE:?set to extracted firmware directory}
-export CUBE_AUDIO=${CUBE_AUDIO:?set to extracted 2019 audio table directory}
-export CUBE_KERNEL_OUT=${CUBE_KERNEL_OUT:?set to matching runtime kernel build output}
+export CUBE_PUBLIC_TEMPLATE=${CUBE_PUBLIC_TEMPLATE:-0}
+case "$CUBE_PUBLIC_TEMPLATE" in 0|1) ;; *) echo 'CUBE_PUBLIC_TEMPLATE must be 0 or 1' >&2; exit 1 ;; esac
+if [ "$CUBE_PUBLIC_TEMPLATE" = 1 ] && { [ -n "${CUBE_UPDATE_PUB:-}" ] || [ "${CUBE_UPDATE_FAULT_TEST:-0}" = 1 ]; }; then
+    echo 'template must not contain an experimental update key or fault injection' >&2; exit 1
+fi
+if [ "$CUBE_PUBLIC_TEMPLATE" != 1 ]; then
+    export CUBE_FIRMWARE=${CUBE_FIRMWARE:?set to extracted firmware directory}
+    export CUBE_AUDIO=${CUBE_AUDIO:?set to extracted 2019 audio table directory}
+    export CUBE_KERNEL_OUT=${CUBE_KERNEL_OUT:?set to matching runtime kernel build output}
+fi
 output=${CUBE_OUTPUT:?set a new private output directory}
 [ ! -e "$output" ] || { echo 'output already exists' >&2; exit 1; }
 [ -f "$daemon" ] && [ -x "$inputs/apk.static" ] || { echo 'missing daemon or apk.static' >&2; exit 1; }
@@ -71,13 +78,24 @@ find "$stage/tools" -type f -exec sed -i 's/\r$//' {} +
 sh "$stage/tools/mkrootfs.sh" -i "$stage" -o "$work/rootfs.tar.gz" -w "$work/build" -V cube-experimental -z Asia/Tokyo -a armv7 -A "$inputs/apk.static" -W alpine
 R="$work/build/root"
 # Verify the files that prevent an Android partition from being mistaken for this root.
-grep -qx 'TECHO5-CUBE-ROOT-V1' "$R/etc/techo5-cube-root"
+if [ "$CUBE_PUBLIC_TEMPLATE" = 1 ]; then
+    grep -qx 'TECHO5-CUBE-TEMPLATE-V1' "$R/etc/techo5-cube-root"
+else
+    grep -qx 'TECHO5-CUBE-ROOT-V1' "$R/etc/techo5-cube-root"
+fi
 [ -x "$R/usr/local/bin/techo5" ] && [ -x "$R/etc/techo5-cube/rcS" ]
 [ ! -e "$R/usr/local/sbin/slotctl" ] && [ ! -e "$R/usr/local/sbin/bootctl" ]
 [ ! -e "$R/lib/firmware/FT6336U_Holitech.bin" ] && [ ! -e "$R/lib/firmware/FT6336U_KD.bin" ]
 # This is an ext4 image for offline examination only, not an installer.
 mke2fs -q -t ext4 -O ^metadata_csum,^metadata_csum_seed,^orphan_file -L techo5-cube -d "$R" "$work/system_b.img" 512M
 mkdir "$output"
+if [ "$CUBE_PUBLIC_TEMPLATE" = 1 ]; then
+    cp "$work/system_b.img" "$output/cube-template-DO-NOT-FLASH.img"
+    sha256sum "$output/cube-template-DO-NOT-FLASH.img" > "$output/SHA256SUMS"
+    printf '%s\n' 'Experimental template without vendor firmware, audio tables or kernel modules. Cannot boot or be installed until assembled with owner inputs.' > "$output/README.txt"
+    echo "Saved experimental template in $output"
+    exit 0
+fi
 cp "$work/system_b.img" "$output/system_b-experimental-DO-NOT-FLASH.img"
 cp "$work/rootfs.tar.gz" "$output/rootfs-private.tar.gz"
 sha256sum "$output/system_b-experimental-DO-NOT-FLASH.img" "$output/rootfs-private.tar.gz" > "$output/SHA256SUMS"

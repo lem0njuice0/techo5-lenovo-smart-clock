@@ -181,6 +181,8 @@ def main():
     p.add_argument('--lenovo-archive', type=Path, help='optional local copy of pinned Lenovo source')
     p.add_argument('--kernel-out', type=Path, help='optional compatible prebuilt kernel output')
     p.add_argument('--prebuilt-dir', type=Path, help='optional verified prebuilt cube binaries directory')
+    p.add_argument('--template', type=Path, help='trusted cube rootfs template')
+    p.add_argument('--template-sha256', help='expected template SHA-256 from a trusted source')
     p.add_argument('--jobs', type=int, default=4)
     p.add_argument('--trial-confirmed', action='store_true', help='confirm successful trial of this exact bundle')
     p.add_argument('--wait-timeout', type=int, default=600, help='fastboot wait limit in seconds (1..3600)')
@@ -206,6 +208,9 @@ def main():
             p.error(localized('choose --stock-image or --boot/--vendor/--oem, not both', '--stock-image と --boot/--vendor/--oem は同時に指定できません'))
         if not a.stock_image and not all((a.boot, a.vendor, a.oem)):
             p.error(localized('provide --stock-image or all of --boot, --vendor and --oem', '--stock-image または --boot・--vendor・--oem のすべてを指定してください'))
+        if bool(a.template) != bool(a.template_sha256) or (a.template and not a.prebuilt_dir):
+            p.error(localized('template use requires --template, --template-sha256 and --prebuilt-dir',
+                              'テンプレートには --template・--template-sha256・--prebuilt-dir が必要です'))
         work.mkdir(parents=True, mode=0o700)
         if a.stock_image:
             paths = extract_stock(a.stock_image, work / 'stock', a.source_slot)
@@ -214,9 +219,11 @@ def main():
         cmd = [sys.executable, str(TOOLS / 'build_cube_bundle.py'), '--vendor', str(paths['vendor']),
                '--oem', str(paths['oem']), '--donor-boot', str(paths['boot']), '--slot', a.slot,
                '--work', str(work / 'bundle'), '--jobs', str(a.jobs)]
-        for name, value in (('--lenovo-archive', a.lenovo_archive), ('--kernel-out', a.kernel_out), ('--prebuilt-dir', a.prebuilt_dir)):
+        for name, value in (('--lenovo-archive', a.lenovo_archive), ('--kernel-out', a.kernel_out), ('--prebuilt-dir', a.prebuilt_dir), ('--template', a.template)):
             if value:
                 cmd.extend([name, str(value.resolve(strict=True))])
+        if a.template_sha256:
+            cmd.extend(['--template-sha256', a.template_sha256])
     else:
         if not a.serial:
             p.error(localized('--serial is required for fastboot actions', 'fastboot の操作には --serial が必要です'))

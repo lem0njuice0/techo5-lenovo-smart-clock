@@ -19,6 +19,8 @@ Installation requires an unlocked device, data extracted from the owner's stock 
 
 The [experimental single-entry pipeline](ports/lenovo-smart-clock/INSTALL.en.md#single-entry-experimental-pipeline) accepts the owner's stock data, obtains pinned public inputs and kernel source, builds a private bundle, and provides inspect, trial, and install stages. A PowerShell wrapper runs it under WSL. The complete source-to-device workflow is still awaiting end-to-end testing.
 
+An experimental [shared-template workflow](ports/lenovo-smart-clock/INSTALL.en.md#assembling-from-a-shared-template) separates the common rootfs from the owner's stock firmware and audio data. A full-size assembled image passed offline checks, but the workflow has not been boot-tested and no distributable template is available yet.
+
 ## Feature status
 
 These results describe the tested devices and conditions, not a guarantee for all firmware versions or configurations. Some optional features require additional build inputs or settings.

@@ -65,6 +65,12 @@ On Windows, run the PowerShell wrapper through a prepared Ubuntu WSL environment
 
 ## Experimental: automated preparation and build
 
+### Assembling from a shared template
+
+An experimental upstream-style approach builds a common rootfs template without stock firmware, audio tables or kernel modules, then combines it with the owner's data and modules from a matching kernel. The template cannot be flashed on its own. Dependency licensing, source-offer obligations and device behavior must be reviewed before distribution; **no distributable template or prebuilt package is currently published**.
+
+Developers who have independently obtained a trusted template, its expected SHA-256 and matching prebuilt components can add `--template /private/cube-template.img --template-sha256 EXPECTED_SHA256 --prebuilt-dir /private/prebuilt` to the pipeline's `build` or `build-guided` action. Owner stock data and modules built for a matching kernel remain necessary. A hash comparison alone does not authenticate the publisher. The template workflow has not been tested end to end on a clock.
+
 `prepare_cube_inputs.py` downloads public TECHO5 helpers, wake-word models, and required Alpine files from their publishers and verifies pinned SHA-256 hashes. Given the owner's stock data, `build_cube_bundle.py` also downloads Lenovo's 2019 kernel source, reference patches and a pinned toolchain, builds the kernel, and runs extraction, image creation and verification. It does not download a complete stock ROM. The new source-to-device workflow has **not** yet been tested end to end from a clean environment or factory-state device.
 
 In a dedicated x86_64 Linux build environment, replace the example paths below. Root, Go, JADX, `debugfs`, `mke2fs`, registered `qemu-arm`, Git, tar, make, GCC, gzip, cpio, bc, bison, flex, and ample free disk space are required. Use a case-sensitive Linux filesystem with enough space for a roughly 0.9 GB source archive, extracted source, compiler, build intermediates and images; WSL also needs free space on the drive that stores its virtual disk. `--work` must not exist yet and must not contain whitespace.

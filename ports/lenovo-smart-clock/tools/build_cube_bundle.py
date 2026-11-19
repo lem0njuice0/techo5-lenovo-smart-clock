@@ -54,20 +54,33 @@ def main():
     p.add_argument('--oem', type=Path, required=True, help='owner OEM raw ext4 image or directory')
     p.add_argument('--kernel-out', type=Path, help='optional compatible prebuilt kernel output directory')
     p.add_argument('--prebuilt-dir', type=Path, help='optional directory of four prebuilt cube binaries and SHA256.json')
+    p.add_argument('--template', type=Path, help='trusted experimental cube rootfs template')
+    p.add_argument('--template-sha256', help='expected SHA-256 from the trusted template source')
     p.add_argument('--lenovo-archive', type=Path, help='optional local copy of the exact pinned Lenovo source archive')
     p.add_argument('--jobs', type=int, default=4, help='parallel kernel build jobs (default: 4)')
     p.add_argument('--donor-boot', type=Path, required=True, help='owner matching stock boot image')
     p.add_argument('--slot', choices=('a', 'b'), required=True, help='target inactive slot; must match boot image')
     p.add_argument('--work', type=Path, required=True, help='new private working directory; needs several GB free')
     a = p.parse_args()
+    if bool(a.template) != bool(a.template_sha256):
+        p.error('--template and --template-sha256 must be supplied together')
+    if a.template and not a.prebuilt_dir:
+        p.error('--template requires matching --prebuilt-dir for boot init and verification')
     if sys.platform != 'linux' or platform.machine() not in ('x86_64', 'amd64'):
         p.error('requires x86_64 Linux (or a Linux VM/WSL)')
     if os.geteuid() != 0:
         p.error('run as root in a dedicated Linux build environment')
-    for cmd in (('jadx', 'debugfs', 'mke2fs', 'bash') if a.prebuilt_dir else ('go', 'jadx', 'debugfs', 'mke2fs', 'bash')):
+    required = ['jadx', 'debugfs', 'bash']
+    if a.template:
+        required.append('e2fsck')
+    else:
+        required.append('mke2fs')
+    if not a.prebuilt_dir:
+        required.append('go')
+    for cmd in required:
         if not shutil.which(cmd):
             p.error('missing required tool: ' + cmd)
-    if not Path('/proc/sys/fs/binfmt_misc/qemu-arm').is_file():
+    if not a.template and not Path('/proc/sys/fs/binfmt_misc/qemu-arm').is_file():
         p.error('qemu-arm binfmt is not registered')
     work = a.work.resolve()
     if work.exists():
@@ -81,6 +94,8 @@ def main():
     prebuilt = verify_prebuilt(a.prebuilt_dir) if a.prebuilt_dir else None
     if a.lenovo_archive:
         a.lenovo_archive = a.lenovo_archive.resolve(strict=True)
+    if a.template:
+        a.template = a.template.resolve(strict=True)
     if not a.donor_boot.is_file():
         p.error('donor boot is missing')
     if REPO == work or REPO in work.parents:
@@ -89,7 +104,8 @@ def main():
     env = {key: value for key, value in os.environ.items() if not key.startswith('CUBE_')}
     env.update({'GOOS': 'linux', 'GOARCH': 'arm', 'GOARM': '7', 'CGO_ENABLED': '0'})
     inputs, firmware, oem, audio = (work / n for n in ('inputs', 'firmware', 'oem', 'audio'))
-    run([sys.executable, TOOLS / 'prepare_cube_inputs.py', '--output', inputs])
+    if not a.template:
+        run([sys.executable, TOOLS / 'prepare_cube_inputs.py', '--output', inputs])
     run([sys.executable, TOOLS / 'extract_stock_firmware.py', a.vendor, firmware])
     run([sys.executable, TOOLS / 'extract_oem_apk.py', a.oem, oem])
     run([sys.executable, TOOLS / 'extract_audio_apk.py', oem / 'app.apk', audio])
@@ -122,14 +138,20 @@ def main():
     dtb = a.kernel_out / 'arch/arm64/boot/dts/mediatek/mt8167s_ref.dtb'
     if not kernel.is_file() or not dtb.is_file():
         raise ValueError('kernel Image.gz or DTB is missing')
-    env.update({'CUBE_PORT': str(PORT), 'CUBE_REPO': str(REPO), 'CUBE_INPUTS': str(inputs),
-                'CUBE_HELPERS': str(inputs / 'helpers'), 'CUBE_FIRMWARE': str(firmware),
-                'CUBE_AUDIO': str(audio), 'CUBE_KERNEL_OUT': str(a.kernel_out),
-                'CUBE_DAEMON': str(daemon), 'CUBE_BTBRIDGE': str(btbridge), 'CUBE_SERIAL': str(serial),
-                'CUBE_OUTPUT': str(work / 'rootfs'), 'CUBE_TEST_AUDIO': '1', 'CUBE_BLUETOOTH': '1'})
-    run(['bash', TOOLS / 'build-private-rootfs.sh'], env)
     boot = work / ('boot-' + a.slot + '.img')
     system = work / 'rootfs/system_b-experimental-DO-NOT-FLASH.img'
+    if a.template:
+        system.parent.mkdir()
+        run([sys.executable, TOOLS / 'assemble_cube_template.py', '--template', a.template,
+             '--template-sha256', a.template_sha256, '--firmware', firmware, '--audio', audio,
+             '--kernel-out', a.kernel_out, '--output', system])
+    else:
+        env.update({'CUBE_PORT': str(PORT), 'CUBE_REPO': str(REPO), 'CUBE_INPUTS': str(inputs),
+                    'CUBE_HELPERS': str(inputs / 'helpers'), 'CUBE_FIRMWARE': str(firmware),
+                    'CUBE_AUDIO': str(audio), 'CUBE_KERNEL_OUT': str(a.kernel_out),
+                    'CUBE_DAEMON': str(daemon), 'CUBE_BTBRIDGE': str(btbridge), 'CUBE_SERIAL': str(serial),
+                    'CUBE_OUTPUT': str(work / 'rootfs'), 'CUBE_TEST_AUDIO': '1', 'CUBE_BLUETOOTH': '1'})
+        run(['bash', TOOLS / 'build-private-rootfs.sh'], env)
     run([sys.executable, TOOLS / 'make_diagnostic_boot.py', '--experimental-system-' + a.slot, a.donor_boot, kernel, dtb, boot])
     run([sys.executable, TOOLS / 'verify_diagnostic_boot.py', '--expect-system-' + a.slot, a.donor_boot, boot, kernel, dtb])
     report = work / 'root-report.json'
