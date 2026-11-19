@@ -2,13 +2,13 @@
 
 [English](STOCK-UNLOCK.en.md) | **日本語** · [導入ガイド](INSTALL.ja.md)
 
-対象は初代 Lenovo Smart Clock CD-24501F です。ここでは、[XDA の関連スレッド](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/)を参照した [kortregt 氏の解除記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md)と[読み出し記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md)をもとに、作業の流れを説明します。**XDA の本文はアクセス制限により直接確認できていません。** 外部ツールや認証情報はこのリポジトリには含まれず、取得元やファイルの安全性、すべての純正バージョンとの適合は確認できていません。
+対象は初代 Lenovo Smart Clock CD-24501F です。[XDA の関連スレッド](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/)を参照した [kortregt 氏の解除記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md)と[読み出し記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md)をもとに、作業の流れを説明します。外部ツールや認証情報はこのリポジトリには含まれず、ファイルの安全性や、すべての純正バージョンとの適合は確認できていません。
 
 解除や書き込みによって端末が初期化されたり、起動できなくなったりする可能性があります。復旧用の純正データを残したい場合は、**解除や書き込みより先に**取得してください。本プロジェクトでは完全な復元手順を実機で検証していません。
 
 ## 1. 純正データの読み出し
 
-参照先では、[mtkclient](https://github.com/bkerler/mtkclient) を使い、時計を MediaTek BootROM モードで接続して eMMC の内容を読み出しています。BootROM 接続は fastboot とは別です。参照先にも機種固有のボタン操作が確定情報として書かれていないため、ここでは未確認の組み合わせを指定しません。使用する OS に合わせて mtkclient と USB ドライバーを準備し、[読み出し記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md)の接続・権限に関する注意を確認してください。Windows から WSL を使う場合は、BootROM の USB 機器を WSL に接続する必要があります。
+参照先では、[mtkclient](https://github.com/bkerler/mtkclient) を使い、時計を MediaTek BootROM モードで接続して eMMC の内容を読み出しています。BootROM 接続は fastboot とは別です。機種固有のボタン操作は参照先でも確定していません。使用する OS に合わせて mtkclient と USB ドライバーを準備し、[読み出し記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md)の接続・権限に関する注意を確認してください。Windows から WSL を使う場合は、BootROM の USB 機器を WSL に接続する必要があります。
 
 mtkclient で対象端末を認識できた場合、参照先に記載された読み出しコマンドは次のとおりです。`mtk` コマンドの実行方法はインストール方法によって異なります。出力先には十分な空き容量を用意し、コマンドの対象と保存先を確認してください。
 

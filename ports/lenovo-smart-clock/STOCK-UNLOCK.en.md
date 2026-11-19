@@ -2,7 +2,7 @@
 
 **English** | [日本語](STOCK-UNLOCK.ja.md) · [Installation guide](INSTALL.en.md)
 
-This applies to the first-generation Lenovo Smart Clock CD-24501F. The workflow below is based on [kortregt's unlock notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md) and [extraction notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md), which reference the [XDA discussion](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/). **The XDA post could not be directly checked due to access restrictions.** External tools and credentials are not included in this repository; their provenance, safety and compatibility with all stock versions have not been established.
+This applies to the first-generation Lenovo Smart Clock CD-24501F. The workflow below is based on [kortregt's unlock notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md) and [extraction notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md), which reference the [XDA discussion](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/). External tools and credentials are not included in this repository; their safety and compatibility with all stock versions have not been established.
 
 Unlocking or flashing can erase data or leave the device unable to boot. If you want to preserve stock data for recovery, obtain it **before** unlocking or writing. Full restoration has not been tested by this project.
 
