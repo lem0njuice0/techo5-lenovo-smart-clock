@@ -769,9 +769,8 @@ type playerState struct {
 }
 
 // noteClock tells the server the player is available the first time the clock filter is past lost,
-// right after a round. It latches: CheckQuality reads lost again whenever 5 s pass without a round,
-// and rounds are syncEvery apart, so following it would take the player away between every two
-// rounds (seen on a Show: the server stopped streaming to it).
+// right after a round. It latches instead of withdrawing a player during a transient clock-quality
+// loss (on a Show, that made the server stop streaming to it).
 func (s *session) noteClock() {
 	if s.clock.CheckQuality() != ssync.QualityLost && !s.converged.Swap(true) {
 		s.reported()

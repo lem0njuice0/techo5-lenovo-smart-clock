@@ -30,6 +30,12 @@ func TestCubeClockMapsServerDeadlineToMonotonicTime(t *testing.T) {
 	c.mu.Lock()
 	c.lastSync = time.Now().Add(-6 * time.Second)
 	c.mu.Unlock()
+	if c.CheckQuality() == ssync.QualityLost {
+		t.Fatal("clock became stale before the next scheduled sync")
+	}
+	c.mu.Lock()
+	c.lastSync = time.Now().Add(-cubeClockMaxAge - time.Second)
+	c.mu.Unlock()
 	if c.CheckQuality() != ssync.QualityLost {
 		t.Fatal("stale clock reported ready")
 	}

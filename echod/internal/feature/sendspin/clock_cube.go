@@ -12,6 +12,11 @@ import (
 // session starts; the protocol's client timestamps must remain monotonic.
 var cubeEpoch = time.Now()
 
+// Measurements run every syncEvery, not continuously. Keep a valid sample
+// through the next burst and tolerate up to two missed intervals; a five-second
+// deadline incorrectly made the clock stale between ten-second measurements.
+const cubeClockMaxAge = 3 * syncEvery
+
 func micros() int64 { return cubeEpoch.UnixMicro() + time.Since(cubeEpoch).Microseconds() }
 
 type cubeClock struct {
@@ -47,7 +52,7 @@ func (c *cubeClock) ProcessSyncResponse(t1, t2, t3, t4 int64) {
 func (c *cubeClock) CheckQuality() ssync.Quality {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.lastSync.IsZero() || time.Since(c.lastSync) > 5*time.Second || !c.filter.Synced() {
+	if c.lastSync.IsZero() || time.Since(c.lastSync) > cubeClockMaxAge || !c.filter.Synced() {
 		return ssync.QualityLost
 	}
 	err := c.filter.GetError()

@@ -14,6 +14,12 @@ On the second unit, a short H.264/AAC video was confirmed with picture and
 sound after the cube-specific decoder startup fix. This does not establish
 support for every codec, streaming source, or live video feature.
 
+An intermittent Sendspin synchronization issue was observed on one unit. A
+cube-specific clock freshness fix keeps the estimate usable between scheduled
+ten-second measurements. After a daemon-only test update, the owner reported
+that the speakers were synchronized; longer playback and recurrence remain to
+be tested. The observation does not establish that this was the sole cause.
+
 ## Current status
 
 This is source for an experimental build, **not a ready-to-install release**.
