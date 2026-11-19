@@ -18,6 +18,32 @@
 
 **このガイドだけでは、初期状態の機器への導入を完了できません。** 必要なファイルや解除・復旧の手段を用意できない場合は、書き込みに進まず、手順が整うまでお待ちください。
 
+## アンロックと純正データ
+
+参考情報として、[XDA の Smart Clock ブートローダー／AVB 解除スレッド](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/)と、[初代機の解除に関する別の記録](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md)があります。XDA のページは本ガイド作成時に本文を取得できなかったため、現在の手順やファイルの内容・適合性は直接確認できていません。解除によりデータが初期化される場合があります。このツールは解除や解除用の認証情報の提供は行いません。
+
+純正 ROM 全体を正規に取得できる配布先は確認できていません。統合スクリプトには、所有者の eMMC ユーザー領域全体の raw イメージ、または端末から取得した boot・vendor・OEM の各イメージを渡せます。スクリプト自体は端末から読み出しません。[端末からの取得に関する参考資料](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md)には別途 BootROM を使う方法がありますが、本プロジェクトではすべてのファームウェア版で検証していません。抽出データには機器固有の情報が含まれ得るため、公開しないでください。
+
+## 統合スクリプト（実験版）
+
+Linux 用の `cube_pipeline.py` は、所有者の純正イメージからの抽出、公開ファイルの取得、カーネルとイメージのビルド、fastboot の検査・試験起動・導入を一つの窓口から実行します。既存ツールを呼び出す方式で、**一連の作業の通し試験はまだ完了していません**。解除や起動成功の登録は行いません。以下の前提条件と制限も確認してください。
+
+例えば、必要なツールを準備した Linux x86_64 環境で root として、各パスを実際のものに置き換えて実行します。
+
+```sh
+python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build --work /private/cube-run --slot a --stock-image /private/full-user.img --source-slot a
+```
+
+`--stock-image` の代わりに `--boot /private/boot.img --vendor /private/vendor.img --oem /private/oem.img` も指定できます。ディスク全体の raw イメージを渡した場合は、GPT の両コピーを検査してから必要な boot・vendor・OEM だけを非公開の作業フォルダーに取り出します。全体のバックアップは作成しません。対応するビルド済みカーネルを使う場合は `--kernel-out`、ダウンロード済みでハッシュが一致する Lenovo ソースを使う場合は `--lenovo-archive` を指定できます。
+
+ビルド後、解除済みの時計を fastboot 接続し、同じ `--work` と `--slot` に `inspect --serial DEVICE_SERIAL` を付けて検査します。`trial --serial DEVICE_SERIAL` は**指定した非アクティブ側の system を上書き**して一時起動します。確認後に fastboot に戻し、同じイメージの試験が成功した場合のみ `install --serial DEVICE_SERIAL --trial-confirmed` で導入してください。再起動後の起動成功登録と完全復旧はまだ自動化されていません。
+
+Windows では、準備済みの Ubuntu WSL から PowerShell ラッパーを使えます。`-PipelineArgs` 内のパスは Windows パスではなく WSL のパスです。WSL の root で実行されるため、下記の Linux 用依存ツールを導入し、fastboot を使うときは usbipd-win などで時計の USB を WSL に接続してください。Windows での通し試験はまだです。
+
+```powershell
+.\ports\lenovo-smart-clock\tools\cube_pipeline.ps1 -Distro Ubuntu -PipelineArgs @('build','--work','/home/user/cube-run','--slot','a','--stock-image','/mnt/d/private/full-user.img','--source-slot','a')
+```
+
 ## 実験中：準備とビルドの自動化
 
 `prepare_cube_inputs.py` は公開元から TECHO5 の補助プログラム・ウェイクワードモデルと Alpine の必要ファイルを取得し、固定された SHA-256 を検証します。`build_cube_bundle.py` は、所有者の純正データを使い、Lenovo の 2019 年版カーネルソース・参照パッチ・固定バージョンのコンパイラーを取得して、カーネルのビルドからイメージの構築・検証までつなぎます。純正 ROM 全体は取得しません。新しい手順をクリーンな環境と初期状態の実機で通して試す検証は**まだ完了していません**。

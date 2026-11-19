@@ -18,6 +18,32 @@ Display, touch, Wi-Fi, and other features were tested on two devices, but testin
 
 **This guide alone cannot complete an installation on a factory-state device.** If you cannot obtain the necessary inputs or establish unlocking and recovery, do not proceed to flashing; wait until the missing instructions are available.
 
+## Unlocking and stock data
+
+For background, see the [XDA Smart Clock bootloader / AVB unlock discussion](https://xdaforums.com/t/lenovo-smart-clock-bootloader-avb-unlock-firmware-region-changer-kernel-source.4130295/) and the [independent first-generation unlock notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/01-unlocking.md). The XDA page could not be retrieved when these instructions were written, so its current contents, files and suitability have not been independently verified. Unlocking can erase data; the tools here do not unlock a device or supply unlock credentials.
+
+No authorized download of the complete stock ROM has been established. The pipeline accepts either an owner's raw, complete eMMC user-area image with a valid GPT or separate boot, vendor and OEM images from their device. It does not read the device to acquire them. [Device extraction notes](https://github.com/kortregt/lenovo-smart-clock-linux/blob/main/docs/02-backup.md) describe a separate BootROM method; it has not been validated by this project for all firmware versions. Extracted data may be device-specific and must be kept private.
+
+## Single-entry experimental pipeline
+
+`cube_pipeline.py` is a Linux entry point for extraction from an owner's stock image, public input downloads, kernel and image builds, and separate fastboot inspect/trial/install stages. It calls the existing tools; **the complete workflow has not been tested end to end**. It cannot unlock the device or mark the installed slot successful. The prerequisites and limitations in this guide still apply.
+
+For example, on x86_64 Linux with the tools and WSL-compatible environment described below, as root, with paths replaced:
+
+```sh
+python3 ports/lenovo-smart-clock/tools/cube_pipeline.py build --work /private/cube-run --slot a --stock-image /private/full-user.img --source-slot a
+```
+
+Instead of `--stock-image`, provide `--boot /private/boot.img --vendor /private/vendor.img --oem /private/oem.img`. The raw whole-disk path extracts only boot, vendor and OEM partitions to the private work directory after checking both GPT copies. It does not make a full backup. To skip rebuilding the kernel, provide `--kernel-out`; use `--lenovo-archive` for an already downloaded hash-matching source archive.
+
+After building, connect the unlocked clock in fastboot and use the same `--work` and `--slot` with `inspect --serial DEVICE_SERIAL`. `trial --serial DEVICE_SERIAL` **writes the selected inactive system partition** and boots temporarily. Check the trial, return to fastboot, and use `install --serial DEVICE_SERIAL --trial-confirmed` only after testing the same bundle. Reboot and check boot-success status separately; automatic success registration and complete recovery remain unfinished.
+
+On Windows, run the PowerShell wrapper through a prepared Ubuntu WSL environment. All paths in `-PipelineArgs` are WSL paths, not Windows paths. The wrapper runs the pipeline as WSL root; install the documented Linux dependencies and attach the clock's fastboot USB device to WSL (for example, using usbipd-win) before fastboot actions. This wrapper and full workflow are experimental and have not been verified end to end on Windows.
+
+```powershell
+.\ports\lenovo-smart-clock\tools\cube_pipeline.ps1 -Distro Ubuntu -PipelineArgs @('build','--work','/home/user/cube-run','--slot','a','--stock-image','/mnt/d/private/full-user.img','--source-slot','a')
+```
+
 ## Experimental: automated preparation and build
 
 `prepare_cube_inputs.py` downloads public TECHO5 helpers, wake-word models, and required Alpine files from their publishers and verifies pinned SHA-256 hashes. Given the owner's stock data, `build_cube_bundle.py` also downloads Lenovo's 2019 kernel source, reference patches and a pinned toolchain, builds the kernel, and runs extraction, image creation and verification. It does not download a complete stock ROM. The new source-to-device workflow has **not** yet been tested end to end from a clean environment or factory-state device.
