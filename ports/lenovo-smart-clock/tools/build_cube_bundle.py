@@ -17,6 +17,30 @@ import sys
 TOOLS = Path(__file__).resolve().parent
 PORT = TOOLS.parent
 REPO = PORT.parent.parent
+PREBUILT = {'echod-cube-arm': 40, 'btbridge-cube-arm': 40, 'cube-serial-arm': 40, 'cube-boot-init-aarch64': 183}
+
+
+def verify_prebuilt(directory):
+    """Validate manifest hashes and target architectures; provenance remains the user's responsibility."""
+    manifest = json.loads((directory / 'SHA256.json').read_text(encoding='utf-8'))
+    if set(manifest) != set(PREBUILT):
+        raise ValueError('prebuilt manifest must list exactly the four cube binaries')
+    for name, machine in PREBUILT.items():
+        path = directory / name
+        if path.is_symlink() or not path.is_file():
+            raise ValueError('missing or unsafe prebuilt binary: ' + name)
+        h = hashlib.sha256()
+        with path.open('rb') as source:
+            header = source.read(20)
+            h.update(header)
+            for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                h.update(chunk)
+        elf_class = 1 if machine == 40 else 2
+        if len(header) < 20 or header[:4] != b'\x7fELF' or header[4:6] != bytes((elf_class, 1)) or int.from_bytes(header[18:20], 'little') != machine:
+            raise ValueError('wrong target architecture: ' + name)
+        if h.hexdigest() != manifest[name]:
+            raise ValueError('prebuilt hash mismatch: ' + name)
+    return {name: directory / name for name in PREBUILT}
 
 
 def run(args, env=None, stdout=None):
@@ -29,6 +53,7 @@ def main():
     p.add_argument('--vendor', type=Path, required=True, help='owner vendor raw ext4 image or directory')
     p.add_argument('--oem', type=Path, required=True, help='owner OEM raw ext4 image or directory')
     p.add_argument('--kernel-out', type=Path, help='optional compatible prebuilt kernel output directory')
+    p.add_argument('--prebuilt-dir', type=Path, help='optional directory of four prebuilt cube binaries and SHA256.json')
     p.add_argument('--lenovo-archive', type=Path, help='optional local copy of the exact pinned Lenovo source archive')
     p.add_argument('--jobs', type=int, default=4, help='parallel kernel build jobs (default: 4)')
     p.add_argument('--donor-boot', type=Path, required=True, help='owner matching stock boot image')
@@ -39,7 +64,7 @@ def main():
         p.error('requires x86_64 Linux (or a Linux VM/WSL)')
     if os.geteuid() != 0:
         p.error('run as root in a dedicated Linux build environment')
-    for cmd in ('go', 'jadx', 'debugfs', 'mke2fs', 'bash'):
+    for cmd in (('jadx', 'debugfs', 'mke2fs', 'bash') if a.prebuilt_dir else ('go', 'jadx', 'debugfs', 'mke2fs', 'bash')):
         if not shutil.which(cmd):
             p.error('missing required tool: ' + cmd)
     if not Path('/proc/sys/fs/binfmt_misc/qemu-arm').is_file():
@@ -51,6 +76,9 @@ def main():
         setattr(a, name, getattr(a, name).resolve(strict=True))
     if a.kernel_out:
         a.kernel_out = a.kernel_out.resolve(strict=True)
+    if a.prebuilt_dir:
+        a.prebuilt_dir = a.prebuilt_dir.resolve(strict=True)
+    prebuilt = verify_prebuilt(a.prebuilt_dir) if a.prebuilt_dir else None
     if a.lenovo_archive:
         a.lenovo_archive = a.lenovo_archive.resolve(strict=True)
     if not a.donor_boot.is_file():
@@ -68,15 +96,22 @@ def main():
     binaries = work / 'binaries'
     binaries.mkdir()
     daemon, btbridge, serial = (binaries / n for n in ('echod-cube-arm', 'btbridge-cube-arm', 'cube-serial-arm'))
-    run(['go', '-C', REPO / 'echod', 'build', '-tags', 'cube', '-o', daemon, './cmd/echod'], env)
-    run(['go', '-C', REPO, 'build', '-o', btbridge, './cmd/btbridge'], env)
-    run(['go', '-C', PORT / 'serial', 'build', '-tags', 'cube_slot,cube_shared', '-o', serial, '.'], env)
+    if prebuilt:
+        for name, source in prebuilt.items():
+            shutil.copyfile(source, binaries / name)
+        shutil.copyfile(a.prebuilt_dir / 'SHA256.json', binaries / 'SHA256.json')
+        verify_prebuilt(binaries)
+    else:
+        run(['go', '-C', REPO / 'echod', 'build', '-tags', 'cube', '-o', daemon, './cmd/echod'], env)
+        run(['go', '-C', REPO, 'build', '-o', btbridge, './cmd/btbridge'], env)
+        run(['go', '-C', PORT / 'serial', 'build', '-tags', 'cube_slot,cube_shared', '-o', serial, '.'], env)
     if a.kernel_out is None:
         init = binaries / 'cube-boot-init-aarch64'
-        init_env = env.copy()
-        init_env.update({'GOARCH': 'arm64'})
-        init_env.pop('GOARM', None)
-        run(['go', '-C', PORT / 'rescue', 'build', '-tags', 'cube_boot', '-o', init, '.'], init_env)
+        if not prebuilt:
+            init_env = env.copy()
+            init_env.update({'GOARCH': 'arm64'})
+            init_env.pop('GOARM', None)
+            run(['go', '-C', PORT / 'rescue', 'build', '-tags', 'cube_boot', '-o', init, '.'], init_env)
         cmd = [sys.executable, TOOLS / 'build_cube_kernel_from_source.py', '--donor-boot', a.donor_boot,
                '--runtime-init', init, '--work', work / 'kernel-source', '--jobs', str(a.jobs)]
         if a.lenovo_archive:

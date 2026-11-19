@@ -9,12 +9,17 @@ does not verify that settings are shared or implement automatic OTA updates.
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 
 from verify_diagnostic_boot import parse as parse_boot
+
+
+def text(en, ja):
+    return ja if os.environ.get('CUBE_LANGUAGE') == 'ja' else en
 
 
 def sha256(path):
@@ -90,21 +95,21 @@ def main():
     system_size = int(variable(a.serial, "partition-size:system_" + a.slot), 0)
     if a.boot.stat().st_size > boot_size or a.system.stat().st_size != system_size:
         p.error("candidate sizes do not match the device partitions")
-    print("Preflight passed; active slot " + active.upper() + ", target " + a.slot.upper() + ".", flush=True)
+    print(text("Preflight passed; active slot " + active.upper() + ", target " + a.slot.upper() + ".", "事前検査に合格しました。現在のスロット: " + active.upper() + "、対象: " + a.slot.upper() + "。"), flush=True)
     if a.action == "trial":
         call(a.serial, "flash", "system_" + a.slot, str(a.system))
-        print("Wrote the selected system slot; starting the temporary boot image.", flush=True)
+        print(text("Wrote the selected system slot; starting the temporary boot image.", "対象の system に書き込みました。一時起動を開始します。"), flush=True)
         call(a.serial, "boot", str(a.boot))
-        print("Trial requested. Return the device to fastboot before installing boot_" + a.slot + ".")
+        print(text("Trial requested. Return the device to fastboot before installing boot_" + a.slot + ".", "一時起動を開始しました。boot_" + a.slot + " の書き込み前に fastboot に戻してください。"))
     elif a.action == "install":
         call(a.serial, "flash", "boot_" + a.slot, str(a.boot))
         call(a.serial, "set_active", a.slot)
-        print("Wrote and selected the target boot slot. A normal-boot and slot-success check is still needed.")
+        print(text("Wrote and selected the target boot slot. A normal-boot and slot-success check is still needed.", "対象の boot に書き込み、起動スロットに設定しました。通常起動と起動成功状態の確認はまだ必要です。"))
 
 
 if __name__ == "__main__":
     try:
         main()
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
-        print("Installer stopped:", exc, file=sys.stderr)
+        print(text("Installer stopped:", "インストールを停止しました:"), exc, file=sys.stderr)
         raise SystemExit(1)

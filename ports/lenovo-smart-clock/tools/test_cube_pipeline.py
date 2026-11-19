@@ -35,6 +35,19 @@ def stock_gpt_fixture():
 
 
 class PipelineTests(unittest.TestCase):
+    def test_language_selection_and_noninteractive_default(self):
+        with mock.patch('builtins.input', return_value='2'):
+            self.assertEqual(pipeline.choose_language([], True), 'ja')
+        self.assertEqual(pipeline.choose_language(['--language', 'en'], True), 'en')
+        self.assertEqual(pipeline.choose_language([], False), 'en')
+
+    def test_guidance_uses_selected_language(self):
+        with mock.patch.object(pipeline, 'LANGUAGE', 'ja'):
+            self.assertIn('音量アップ', pipeline.message('fastboot'))
+            self.assertIn('20〜30 秒', pipeline.message('return'))
+        with mock.patch.object(pipeline, 'LANGUAGE', 'en'):
+            self.assertIn('Volume Up', pipeline.message('fastboot'))
+
     def test_device_wait_ignores_other_serials_and_times_out(self):
         with mock.patch.object(pipeline, 'fastboot_devices', return_value={'other'}), \
              mock.patch.object(pipeline.time, 'monotonic', side_effect=[0, 0, 2]), \
@@ -72,7 +85,7 @@ class PipelineTests(unittest.TestCase):
             with mock.patch.object(pipeline, 'wait_fastboot'), \
                  mock.patch.object(pipeline.subprocess, 'run') as run, \
                  mock.patch('builtins.input', return_value='no'):
-                with self.assertRaisesRegex(ValueError, 'trial cancelled'):
+                with self.assertRaisesRegex(ValueError, '[Tt]rial cancelled'):
                     pipeline.guided_install(root, 'a', 'clock', 60)
             self.assertEqual(run.call_count, 1)
 
@@ -90,7 +103,7 @@ class PipelineTests(unittest.TestCase):
             with mock.patch.object(pipeline, 'wait_fastboot', side_effect=wait), \
                  mock.patch.object(pipeline.subprocess, 'run') as run, \
                  mock.patch('builtins.input', return_value='yes'):
-                with self.assertRaisesRegex(ValueError, 'bundle changed'):
+                with self.assertRaisesRegex(ValueError, '[Bb]undle changed'):
                     pipeline.guided_install(root, 'a', 'clock', 60)
             self.assertEqual(run.call_count, 2)
 

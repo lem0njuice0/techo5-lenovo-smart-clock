@@ -18,6 +18,50 @@ from verify_diagnostic_boot import parse as parse_boot
 
 TOOLS = Path(__file__).resolve().parent
 REPO = TOOLS.parent.parent.parent
+LANGUAGE = 'en'
+
+MESSAGES = {
+    'fastboot': ('Connect the clock in fastboot: unplug power, keep USB connected, then hold Volume Up for 20–30 seconds while reconnecting power. The screen may stay dark.',
+                 '時計を fastboot にしてください。USB は接続したまま電源を抜き、音量アップを押しながら電源を入れて 20〜30 秒押し続けます。画面は暗いままの場合があります。'),
+    'waiting': ('Waiting for the specified device:', '指定した時計を待っています:'),
+    'overwrite': ('The trial will overwrite the inactive system partition:', '試験起動では、非アクティブ側の system を上書きします:'),
+    'confirm': ('Continue with trial? [yes/no]: ', '試験書き込みを続けますか？ [yes/no]: '),
+    'leaving': ('Waiting for the clock to leave fastboot...', '時計が fastboot を離れるのを待っています...'),
+    'return': ('Return the same clock to fastboot: unplug power, keep USB connected, then hold Volume Up for 20–30 seconds while reconnecting power.',
+               '同じ時計の USB は接続したまま電源を抜き、音量アップを押しながら電源を入れて 20〜30 秒押し続け、fastboot に戻してください。'),
+    'detected': ('Selected clock detected.', '指定した時計を検出しました。'),
+    'unverified': ('Trial features were not verified.', '試験起動の機能確認は行っていません。'),
+    'reboot': ('Reboot requested. Boot success is not marked automatically.', '再起動を開始しました。起動成功の登録は別途必要です。'),
+    'cancel': ('Trial cancelled.', '試験書き込みを中止しました。'),
+    'changed': ('Bundle changed after the trial; refusing to install.', '試験後にイメージが変更されたため、導入を中止しました。'),
+    'stopped': ('Pipeline stopped:', '処理を停止しました:'),
+    'retry': ('Choose 1 (English) or 2 (日本語).', '1（English）または 2（日本語）を選んでください。'),
+}
+
+
+def message(key):
+    return MESSAGES[key][1 if LANGUAGE == 'ja' else 0]
+
+
+def localized(en, ja):
+    return ja if LANGUAGE == 'ja' else en
+
+
+def choose_language(argv, interactive):
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--language', choices=('en', 'ja'))
+    args, _ = parser.parse_known_args(argv)
+    if args.language:
+        return args.language
+    if not interactive or '--help' in argv or '-h' in argv:
+        return 'en'
+    while True:
+        answer = input('Language / 言語: [1] English  [2] 日本語: ').strip().lower()
+        if answer in ('1', 'en', 'english'):
+            return 'en'
+        if answer in ('2', 'ja', '日本語'):
+            return 'ja'
+        print(message('retry'))
 
 
 def fastboot_devices():
@@ -32,7 +76,8 @@ def wait_fastboot(serial, present, timeout):
         if (serial in fastboot_devices()) == present:
             return
         time.sleep(2)
-    raise TimeoutError('Timed out waiting for the selected device to ' + ('enter' if present else 'leave') + ' fastboot')
+    raise TimeoutError(localized('Timed out waiting for the selected device to ' + ('enter' if present else 'leave') + ' fastboot',
+                                ('指定した時計が fastboot に接続されませんでした。' if present else '指定した時計が fastboot を離れませんでした。') + '時間切れのため停止します。'))
 
 
 def bundle_hashes(work, slot):
@@ -57,29 +102,26 @@ def guided_install(work, slot, serial, timeout):
             cmd.append('--trial-unverified')
         subprocess.run(cmd, check=True)
 
-    print('Connect the clock in fastboot (hold Volume Up while powering on).')
-    print('時計を fastboot にしてください（音量アップを押しながら電源投入）。')
-    print('Waiting for the specified serial / 指定した時計を待っています:', serial, flush=True)
+    print(message('fastboot'))
+    print(message('waiting'), serial, flush=True)
     wait_fastboot(serial, True, timeout)
     install_action('inspect')
     hashes = bundle_hashes(work, slot)
-    print('Trial writes system_' + slot + '. The inactive slot will be overwritten.')
-    if input('Continue with trial? / 試験書き込みを続けますか？ [yes/no]: ').strip().lower() != 'yes':
-        raise ValueError('trial cancelled')
+    print(message('overwrite'), 'system_' + slot)
+    if input(message('confirm')).strip().lower() != 'yes':
+        raise ValueError(message('cancel'))
     install_action('trial')
-    print('Waiting for the device to leave fastboot / 時計が fastboot を離れるのを待っています...', flush=True)
+    print(message('leaving'), flush=True)
     wait_fastboot(serial, False, timeout)
-    print('Return the same clock to fastboot: disconnect power, hold Volume Up, reconnect power.')
-    print('同じ時計の電源を抜き、音量アップを押しながら電源を入れて fastboot に戻してください。', flush=True)
+    print(message('return'), flush=True)
     wait_fastboot(serial, True, timeout)
     if hashes != bundle_hashes(work, slot):
-        raise ValueError('bundle changed after the trial; refusing to install')
-    print('Selected clock detected / 指定した時計を検出しました。')
-    print('Trial features were not verified / 試験起動の機能確認は行っていません。')
+        raise ValueError(message('changed'))
+    print(message('detected'))
+    print(message('unverified'))
     install_action('install', unverified=True)
     subprocess.run(['fastboot', '-s', serial, 'reboot'], check=True, timeout=30)
-    print('Reboot requested. Boot success is not marked automatically.')
-    print('再起動を開始しました。起動成功の登録は別途必要です。')
+    print(message('reboot'))
 
 
 def extract_stock(image, output, source_slot):
@@ -122,7 +164,11 @@ def extract_stock(image, output, source_slot):
 
 
 def main():
+    global LANGUAGE
+    LANGUAGE = choose_language(sys.argv[1:], sys.stdin.isatty())
+    os.environ['CUBE_LANGUAGE'] = LANGUAGE
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument('--language', choices=('en', 'ja'), help='prompt language; defaults to English in non-interactive use')
     p.add_argument('action', choices=('build', 'inspect', 'trial', 'install', 'guided', 'build-guided'))
     p.add_argument('--work', type=Path, required=True, help='private pipeline directory')
     p.add_argument('--slot', choices=('a', 'b'), required=True, help='target inactive slot')
@@ -134,31 +180,32 @@ def main():
     p.add_argument('--oem', type=Path, help='owner oem raw ext4 image or extracted directory')
     p.add_argument('--lenovo-archive', type=Path, help='optional local copy of pinned Lenovo source')
     p.add_argument('--kernel-out', type=Path, help='optional compatible prebuilt kernel output')
+    p.add_argument('--prebuilt-dir', type=Path, help='optional verified prebuilt cube binaries directory')
     p.add_argument('--jobs', type=int, default=4)
     p.add_argument('--trial-confirmed', action='store_true', help='confirm successful trial of this exact bundle')
     p.add_argument('--wait-timeout', type=int, default=600, help='fastboot wait limit in seconds (1..3600)')
     a = p.parse_args()
     work = a.work.resolve()
     if not 1 <= a.wait_timeout <= 3600:
-        p.error('--wait-timeout must be 1..3600 seconds')
+        p.error(localized('--wait-timeout must be 1..3600 seconds', '--wait-timeout は 1〜3600 秒で指定してください'))
     if a.action in ('guided', 'build-guided') and not a.serial:
-        p.error('--serial is required for guided actions')
+        p.error(localized('--serial is required for guided actions', '対話式操作には --serial が必要です'))
     if a.action == 'guided':
         guided_install(work, a.slot, a.serial, a.wait_timeout)
         return
     if a.action in ('build', 'build-guided'):
         if sys.platform != 'linux':
-            p.error('build requires Linux; on Windows use the WSL PowerShell wrapper')
+            p.error(localized('build requires Linux; on Windows use the WSL PowerShell wrapper', 'ビルドには Linux が必要です。Windows では WSL 用 PowerShell ラッパーを使ってください'))
         if os.geteuid() != 0:
-            p.error('build requires root in a dedicated Linux build environment')
+            p.error(localized('build requires root in a dedicated Linux build environment', 'ビルドには専用の Linux 環境と root 権限が必要です'))
         if work.exists():
-            p.error('work must be a new directory')
+            p.error(localized('work must be a new directory', '作業先にはまだ存在しないディレクトリを指定してください'))
         if work == REPO or REPO in work.parents:
-            p.error('work must be outside the Git worktree')
+            p.error(localized('work must be outside the Git worktree', '作業先は Git の管理フォルダーの外に指定してください'))
         if a.stock_image and any((a.boot, a.vendor, a.oem)):
-            p.error('choose --stock-image or --boot/--vendor/--oem, not both')
+            p.error(localized('choose --stock-image or --boot/--vendor/--oem, not both', '--stock-image と --boot/--vendor/--oem は同時に指定できません'))
         if not a.stock_image and not all((a.boot, a.vendor, a.oem)):
-            p.error('provide --stock-image or all of --boot, --vendor and --oem')
+            p.error(localized('provide --stock-image or all of --boot, --vendor and --oem', '--stock-image または --boot・--vendor・--oem のすべてを指定してください'))
         work.mkdir(parents=True, mode=0o700)
         if a.stock_image:
             paths = extract_stock(a.stock_image, work / 'stock', a.source_slot)
@@ -167,14 +214,14 @@ def main():
         cmd = [sys.executable, str(TOOLS / 'build_cube_bundle.py'), '--vendor', str(paths['vendor']),
                '--oem', str(paths['oem']), '--donor-boot', str(paths['boot']), '--slot', a.slot,
                '--work', str(work / 'bundle'), '--jobs', str(a.jobs)]
-        for name, value in (('--lenovo-archive', a.lenovo_archive), ('--kernel-out', a.kernel_out)):
+        for name, value in (('--lenovo-archive', a.lenovo_archive), ('--kernel-out', a.kernel_out), ('--prebuilt-dir', a.prebuilt_dir)):
             if value:
                 cmd.extend([name, str(value.resolve(strict=True))])
     else:
         if not a.serial:
-            p.error('--serial is required for fastboot actions')
+            p.error(localized('--serial is required for fastboot actions', 'fastboot の操作には --serial が必要です'))
         if a.action == 'install' and not a.trial_confirmed:
-            p.error('install requires --trial-confirmed after testing this exact bundle')
+            p.error(localized('install requires --trial-confirmed after testing this exact bundle', 'install には、このイメージの試験結果を確認したうえで --trial-confirmed を指定してください'))
         cmd = [sys.executable, str(TOOLS / 'cube_install.py'), '--work', str(work / 'bundle'),
                '--slot', a.slot, '--serial', a.serial, '--action', a.action]
         if a.trial_confirmed:
@@ -192,5 +239,5 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, ValueError, EOFError, subprocess.SubprocessError) as exc:
-        print('Pipeline stopped:', exc, file=sys.stderr)
+        print(message('stopped'), exc, file=sys.stderr)
         raise SystemExit(1)

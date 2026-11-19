@@ -28,6 +28,19 @@ No authorized download of the complete stock ROM has been established. The pipel
 
 ## Single-entry experimental pipeline
 
+### Enter fastboot
+
+1. Connect the clock to the PC with a USB data cable.
+2. Leave USB connected and unplug the clock's power.
+3. Hold volume up while reconnecting power, and keep holding for 20–30 seconds.
+4. The screen may remain dark. Run `fastboot devices` on the PC and check for the intended serial. When using WSL on Windows, attach the fastboot USB device to WSL.
+
+The guided flow shows these instructions and waits for the selected serial. If it is not detected, check the data cable, drivers and WSL USB connection.
+
+### Language selection
+
+In an interactive terminal, the script first asks for `1` (English) or `2` (Japanese). Pass `--language en` or `--language ja` to skip the prompt. Non-interactive runs default to English. Output from external tools such as compilers and downloaders may remain in English.
+
 `cube_pipeline.py` is a Linux entry point for extraction from an owner's stock image, public input downloads, kernel and image builds, and separate fastboot inspect/trial/install stages. It calls the existing tools; **the complete workflow has not been tested end to end**. It cannot unlock the device or mark the installed slot successful. The prerequisites and limitations in this guide still apply.
 
 For example, on x86_64 Linux with the tools and WSL-compatible environment described below, as root, with paths replaced:
@@ -64,6 +77,8 @@ sudo python3 ports/lenovo-smart-clock/tools/build_cube_bundle.py \
 ```
 
 The tool requires a matching 2019 stock boot with an embedded configuration. A separately built matching kernel can instead be supplied with `--kernel-out`; a locally downloaded, hash-matching Lenovo source archive can be supplied with `--lenovo-archive`. No stock ROM or device-specific data is fetched. The resulting image is a private experimental build. This step does not write to the clock. After connecting the device in fastboot, use `--action inspect` for preflight checks. Set `a` to the actual inactive target slot.
+
+`--prebuilt-dir` can point to a directory containing the four prebuilt cube executables and `SHA256.json` to skip their Go builds. No public package is currently provided by this project; redistribution terms and device validation remain outstanding. Hash and CPU architecture checks do not establish provenance or working behavior. Stock data and a kernel are still required.
 
 ```sh
 python3 ports/lenovo-smart-clock/tools/cube_install.py --work /private/cube-build --serial YOUR_SERIAL --slot a --action inspect

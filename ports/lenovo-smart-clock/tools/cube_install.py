@@ -6,9 +6,14 @@ and selects it. This tool does not unlock the device or mark the boot successful
 """
 import argparse
 import hashlib
+import os
 from pathlib import Path
 import subprocess
 import sys
+
+
+def text(en, ja):
+    return ja if os.environ.get('CUBE_LANGUAGE') == 'ja' else en
 
 
 def main():
@@ -39,9 +44,9 @@ def main():
     if a.trial_unverified:
         cmd.append('--trial-unverified')
     if a.action == 'trial':
-        print('WARNING: this writes the inactive system partition before temporary boot.', flush=True)
+        print(text('WARNING: this writes the inactive system partition before temporary boot.', '注意: 一時起動の前に、非アクティブ側の system に書き込みます。'), flush=True)
     elif a.action == 'install':
-        print('WARNING: this writes the inactive boot partition and changes the active slot.', flush=True)
+        print(text('WARNING: this writes the inactive boot partition and changes the active slot.', '注意: 非アクティブ側の boot に書き込み、起動スロットを変更します。'), flush=True)
     subprocess.run(cmd, check=True)
 
 
@@ -49,5 +54,5 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, subprocess.SubprocessError) as exc:
-        print('Installer stopped:', exc, file=sys.stderr)
+        print(text('Installer stopped:', 'インストールを停止しました:'), exc, file=sys.stderr)
         raise SystemExit(1)
